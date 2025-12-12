@@ -1,0 +1,167 @@
+/*
+   brig: a tool for working with devcontainer.json
+   Copyright (C) 2025  Neil Santos
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+*/
+
+// Package brig houses a CLI tool for wokring with devcontainer.json
+package brig
+
+import (
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+
+	"github.com/MakeNowJust/heredoc"
+	"github.com/nlsantos/brig/writ"
+	"github.com/pborman/options"
+)
+
+// EXitCode is a list of numeric exit codes used by brig
+type ExitCode int
+
+// Exiting brig returns one of these values to the shell
+const (
+	ExitNormal ExitCode = iota
+	ExitNoDevcJsonFound
+	ExitTooManyDevcJsonFound
+)
+
+// Based on
+// https://containers.dev/implementors/spec/#devcontainerjson;
+// update as necessary
+var StandardDevcontainerJSONPatterns = []string{
+	".devcontainer.json",
+	".devcontainer/devcontainer.json",
+	".devcontainer/*/devcontainer.json",
+}
+
+// NewCommand initializes the command's lifecycle
+func NewCommand(appName string, appVersion string) {
+	var defConfigPath string = fmt.Sprintf("${HOME}/.config/%src", appName)
+	var opts = struct {
+		Help    options.Help  `getopt:"-h --help display help"`
+		Verbose bool          `getopt:"-v --verbose enable diagnostic messages"`
+		Config  options.Flags `getopt:"-c --config=PATH path to rc file"`
+		Debug   bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		Version bool          `getopt:"-V --version display version informaiton then exit"`
+	}{}
+
+	options.Register(&opts)
+	if err := opts.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	args := options.Parse()
+
+	if opts.Version {
+		fmt.Printf(heredoc.Doc(`
+                    %s, version %s
+                    A tool for working with the devcontainer spec
+                    Copyright (C) 2025  Neil Santos
+
+                    License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+
+                    This is free software; you are free to change and redistribute it.
+                    There is NO WARRANTY, to the extent permitted by law.
+                `), appName, appVersion)
+		os.Exit(int(ExitNormal))
+	}
+
+	logLevel := new(slog.LevelVar)
+	if opts.Debug {
+		logLevel.Set(slog.LevelDebug)
+	} else if opts.Verbose {
+		logLevel.Set(slog.LevelInfo)
+	} else {
+		logLevel.Set(slog.LevelError)
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: logLevel,
+	})))
+	slog.Debug("command line parsed", "args", args)
+
+	var targets = findDevcontainerJSON(args)
+	var targetDevcontainerJSON string
+	if len(targets) == 0 {
+		slog.Debug("unable to find devcontainer.json candidates")
+		fmt.Println("Unable to find a valid devcontainer.json file to target; exiting.")
+		os.Exit(int(ExitNoDevcJsonFound))
+	} else if len(targets) > 1 {
+		slog.Debug("found multiple devcontainer.json candidates; giving up")
+		fmt.Println(heredoc.Doc(`
+				Found multiple devcontainer specifications.
+				Specify one explicitly as a value to the -f/--file command line flag to continue.
+
+				The following paths are eligible targets:
+			`))
+		for _, target := range targets {
+			fmt.Printf("\t%s\n", &target)
+		}
+		os.Exit(int(ExitTooManyDevcJsonFound))
+	} else {
+		slog.Debug("found a devcontainer.json to target", "path", targets[0])
+		targetDevcontainerJSON = targets[0]
+	}
+
+	slog.Debug("instantiating a parser for devcontainer.json", "path", targetDevcontainerJSON)
+	parser := writ.NewParser(targetDevcontainerJSON)
+	if err := parser.Validate(); err != nil {
+		panic(err)
+	}
+	if err := parser.Parse(); err != nil {
+		panic(err)
+	}
+	fmt.Println(*parser.Config.DockerFile)
+}
+
+// findDevcontainerJSON attempts to find a suitable devcontainer.json
+// given a list of path patterns and/or plain paths.
+//
+// paths may contain strings incorporating patterns supported by
+// [filepath.Glob]
+//
+// If paths is empty, it attempts to find one or more valid file paths
+// using StandardDevcontainerJSONPatterns. Otherwise, paths is
+// iterated upon.
+//
+// Returns a list of absolute paths to existing files that fit the
+// above constraints.
+//
+// If any errors are encountered, it panics.
+func findDevcontainerJSON(paths []string) []string {
+	if len(paths) > 0 {
+		slog.Debug("iterating through paths/patterns looking for a devcontainer.json")
+		var retval []string
+		for _, path := range paths {
+			matches, err := filepath.Glob(path)
+			if err != nil {
+				panic(err)
+			}
+			if len(matches) < 1 {
+				continue
+			}
+			for _, match := range matches {
+				if _, err := os.Stat(match); err != nil {
+					continue
+				}
+				if path, err := filepath.Abs(path); err == nil {
+					retval = append(retval, path)
+				}
+			}
+		}
+		return retval
+	}
+
+	return findDevcontainerJSON(StandardDevcontainerJSONPatterns)
+}
