@@ -11,7 +11,6 @@
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-
 */
 
 // Package writ houses a validating parser for devcontainer.json files
@@ -128,6 +127,14 @@ func (p *Parser) Parse() error {
 	if err := json.Unmarshal(p.standardizedJSON, &p.Config); err != nil {
 		slog.Error("failed to unmarshal JSON", "error", err, "path", p.Filepath)
 		return err
+	}
+
+	slog.Debug("performing value normalization")
+	if p.Config.DockerFile != nil {
+		// Convert to absolute path; its value is relative to the path
+		// of the referencing devcontainer.json
+		parentPath := filepath.Join(filepath.Dir(p.Filepath), *p.Config.DockerFile)
+		*p.Config.DockerFile = parentPath
 	}
 
 	return nil
