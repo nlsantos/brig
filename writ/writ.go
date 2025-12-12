@@ -26,6 +26,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/nlsantos/brig/writ/internal/writ"
@@ -57,9 +58,13 @@ type Parser struct {
 // NewParser returns a Parser targeting a devcontainer.json via
 // filepath. A few fields are initialized, and the returned Parser is
 // ready to perform additional operations.
-func NewParser(filepath string) Parser {
+func NewParser(configPath string) Parser {
+	absConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		panic(err)
+	}
 	p := Parser{
-		Filepath:      filepath,
+		Filepath:      absConfigPath,
 		IsValidConfig: false,
 	}
 	stdJSON, err := p.standardizeJSON()
