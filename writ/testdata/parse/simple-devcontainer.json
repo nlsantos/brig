@@ -1,0 +1,9 @@
+{
+  "name": "simple-ish devcontainer.json",
+  "context": "..",
+  "dockerFile": "./Containerfile",
+  "containerEnv": {
+    "APP_PATH": "${containerWorkspaceFolder}",
+    "SHELL": "/bin/bash"
+  }
+}

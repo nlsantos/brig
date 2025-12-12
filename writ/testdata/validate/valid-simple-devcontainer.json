@@ -1,0 +1,30 @@
+{
+  // The devcontainer.json spec uses JSONC, so this comment is perfectly valid
+  "name": "simple-ish devcontainer.json",
+  "context": "..",
+  "dockerFile": "./Containerfile",
+  "containerEnv": {
+    "APP_PATH": "${containerWorkspaceFolder}",
+    "SHELL": "/bin/bash"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "EditorConfig.EditorConfig",
+        "OpenTofu.vscode-opentofu",
+        "charliermarsh.ruff",
+        "dorzey.vscode-sqlfluff",
+        "inferrinizzard.prettier-sql-vscode",
+        "mintlify.document",
+        "minodisk.bigquery-runner",
+        "ms-python.python",
+        "shinichi-takii.sql-bigquery",
+        "tamasfe.even-better-toml"
+      ]
+    },
+  },
+  "forwardPorts": [],
+  "mounts": [
+      "source=${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud,target=/root/.config/gcloud,type=bind,consistency=cached"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "devcontainer.json with multiple build options",
+  "context": "..",
+  // The spec states build options are exclusive
+  "image": "scratch",
+  "dockerFile": "./Containerfile",
+}
