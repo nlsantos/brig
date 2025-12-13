@@ -6,9 +6,9 @@
     "APP_PATH": "${containerWorkspaceFolder}",
     "SHELL": "/bin/bash"
   },
-/*
-  "mounts": [
-      "source=${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud,target=/root/.config/gcloud,type=bind,consistency=cached"
-  ]
-*/
+  "mounts": [{
+    "source": "${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud",
+    "target": "/root/.config/gcloud",
+    "type": "bind"
+  }]
 }
