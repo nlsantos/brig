@@ -151,7 +151,11 @@ func createImageTagBase(p *writ.Parser) string {
 	retval := filepath.Base(ctxDir)
 
 	// Attempt to open the repository in the current directory
-	repo, err := git.PlainOpen(ctxDir)
+	openOpts := git.PlainOpenOptions{
+		DetectDotGit:          true,
+		EnableDotGitCommonDir: true,
+	}
+	repo, err := git.PlainOpenWithOptions(ctxDir, &openOpts)
 	if err != nil {
 		slog.Debug("does not seem to be in a git repo; using default")
 		return retval
