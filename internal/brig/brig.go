@@ -21,8 +21,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/go-git/go-git/v6"
+	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"github.com/pborman/options"
 )
@@ -123,6 +126,56 @@ func NewCommand(appName string, appVersion string) {
 		panic(err)
 	}
 	fmt.Println(*parser.Config.DockerFile)
+
+// Try to generate a distinct yet meaningful name for the generated
+// OCI image based on available metadata.
+//
+// If the context directory is a git repository, this function will
+// build a name using various git-related information; otherwise, it
+// defaults to the basename of the contect directory.
+func createImageTagBase(p *writ.Parser) string {
+	// Use the basename of the devcontainer.json's context as default
+	// value
+	ctxDir := *p.Config.Context
+	retval := filepath.Base(ctxDir)
+
+	// Attempt to open the repository in the current directory
+	repo, err := git.PlainOpen(ctxDir)
+	if err != nil {
+		slog.Debug("does not seem to be in a git repo; using default")
+		return retval
+	}
+
+	cfg, err := repo.Config()
+	if err != nil {
+		slog.Error(fmt.Sprintf("could not open git repo configuration: %v", err))
+		return retval
+	}
+
+	// Try to get the URL of the origin remote
+	remote, ok := cfg.Remotes["origin"]
+	if !ok {
+		slog.Error("remote named 'origin' not found")
+		return retval
+	}
+
+	repoURL := remote.URLs[0]
+	repoName := strings.TrimSuffix(filepath.Base(repoURL), ".git")
+
+	headRef, err := repo.Head()
+	if err != nil {
+		slog.Error(fmt.Sprintf("unable to determine abbreviated reference name: %v", err))
+		return repoName
+	}
+
+	refName := headRef.Name()
+	if refName == "HEAD" {
+		retval = fmt.Sprintf("%s--%s", repoName, headRef.Hash().String())
+	} else {
+		retval = fmt.Sprintf("%s--%s", repoName, refName.Short())
+	}
+
+	return retval
 }
 
 // findDevcontainerJSON attempts to find a suitable devcontainer.json
