@@ -40,6 +40,9 @@ const (
 	ExitTooManyDevcJsonFound
 )
 
+// A default prefix used for the tag of images built by brig
+const ImageTagPrefix = "localhost/devc--"
+
 // Based on
 // https://containers.dev/implementors/spec/#devcontainerjson;
 // update as necessary
@@ -125,7 +128,13 @@ func NewCommand(appName string, appVersion string) {
 	if err := parser.Parse(); err != nil {
 		panic(err)
 	}
-	fmt.Println(*parser.Config.DockerFile)
+
+	trillClient := trill.NewClient("")
+	imageName := createImageTagBase(&parser)
+	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
+	trillClient.BuildContainerImage(&parser, imageTag)
+	trillClient.StartContainer(&parser, imageTag, imageName)
+}
 
 // Try to generate a distinct yet meaningful name for the generated
 // OCI image based on available metadata.
