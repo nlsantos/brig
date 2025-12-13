@@ -36,8 +36,8 @@ type ExitCode int
 // Exiting brig returns one of these values to the shell
 const (
 	ExitNormal ExitCode = iota
-	ExitNoDevcJsonFound
-	ExitTooManyDevcJsonFound
+	ExitNoDevcJSONFound
+	ExitTooManyDevJSONFound
 )
 
 // A default prefix used for the tag of images built by brig
@@ -54,7 +54,7 @@ var StandardDevcontainerJSONPatterns = []string{
 
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) {
-	var defConfigPath string = fmt.Sprintf("${HOME}/.config/%src", appName)
+	var defConfigPath = fmt.Sprintf("${HOME}/.config/%src", appName)
 	var opts = struct {
 		Help    options.Help  `getopt:"-h --help display help"`
 		Verbose bool          `getopt:"-v --verbose enable diagnostic messages"`
@@ -85,11 +85,12 @@ func NewCommand(appName string, appVersion string) {
 	}
 
 	logLevel := new(slog.LevelVar)
-	if opts.Debug {
+	switch {
+	case opts.Debug:
 		logLevel.Set(slog.LevelDebug)
-	} else if opts.Verbose {
+	case opts.Verbose:
 		logLevel.Set(slog.LevelInfo)
-	} else {
+	default:
 		logLevel.Set(slog.LevelError)
 	}
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
@@ -99,11 +100,12 @@ func NewCommand(appName string, appVersion string) {
 
 	var targets = findDevcontainerJSON(args)
 	var targetDevcontainerJSON string
-	if len(targets) == 0 {
+	switch {
+	case len(targets) == 0:
 		slog.Debug("unable to find devcontainer.json candidates")
 		fmt.Println("Unable to find a valid devcontainer.json file to target; exiting.")
-		os.Exit(int(ExitNoDevcJsonFound))
-	} else if len(targets) > 1 {
+		os.Exit(int(ExitNoDevcJSONFound))
+	case len(targets) > 1:
 		slog.Debug("found multiple devcontainer.json candidates; giving up")
 		fmt.Println(heredoc.Doc(`
 				Found multiple devcontainer specifications.
@@ -112,10 +114,10 @@ func NewCommand(appName string, appVersion string) {
 				The following paths are eligible targets:
 			`))
 		for _, target := range targets {
-			fmt.Printf("\t%s\n", &target)
+			fmt.Printf("\t%s\n", target)
 		}
-		os.Exit(int(ExitTooManyDevcJsonFound))
-	} else {
+		os.Exit(int(ExitTooManyDevJSONFound))
+	default:
 		slog.Debug("found a devcontainer.json to target", "path", targets[0])
 		targetDevcontainerJSON = targets[0]
 	}
@@ -217,8 +219,8 @@ func findDevcontainerJSON(paths []string) []string {
 				if _, err := os.Stat(match); err != nil {
 					continue
 				}
-				if path, err := filepath.Abs(path); err == nil {
-					retval = append(retval, path)
+				if abspath, err := filepath.Abs(path); err == nil {
+					retval = append(retval, abspath)
 				}
 			}
 		}

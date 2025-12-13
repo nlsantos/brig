@@ -55,8 +55,8 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
 	}
 	defer func() {
 		contextArchive.Close()
-		if err := os.Remove(contextArchive.Name()); err != nil {
-			slog.Error("failed cleaning up context archive", "path", contextArchive.Name(), "error", err)
+		if errDefer := os.Remove(contextArchive.Name()); errDefer != nil {
+			slog.Error("failed cleaning up context archive", "path", contextArchive.Name(), "error", errDefer)
 		}
 	}()
 
@@ -149,21 +149,31 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	// container
 	slog.Debug("switching terminal to raw mode")
 	if fd := int(os.Stdin.Fd()); term.IsTerminal(fd) {
-		if oldState, err := term.MakeRaw(fd); err != nil {
+		oldState, err := term.MakeRaw(fd)
+		if err != nil {
 			panic(err)
-		} else {
-			defer func() {
-				slog.Debug("restoring terminal state")
-				term.Restore(fd, oldState)
-			}()
 		}
+		defer func() {
+			slog.Debug("restoring terminal state")
+			if err := term.Restore(fd, oldState); err != nil {
+				panic(err)
+			}
+		}()
 	}
 	// This allows usage of the container in a terminal as one would,
 	// e.g., a regular shell
 	slog.Debug("setting up terminal input/output")
 	var wg sync.WaitGroup
-	wg.Go(func() { io.Copy(os.Stdout, resp.Reader) })
-	go io.Copy(resp.Conn, os.Stdin)
+	wg.Go(func() {
+		if _, err := io.Copy(os.Stdout, resp.Reader); err != nil {
+			panic(err)
+		}
+	})
+	go func() {
+		if _, err := io.Copy(resp.Conn, os.Stdin); err != nil {
+			panic(err)
+		}
+	}()
 
 	slog.Debug("attempting to start container", "id", containerID)
 	// TODO: Support the container initialization options/operations
@@ -246,10 +256,14 @@ func buildContextArchive(ctxDir string) (string, error) {
 		ExcludePatterns: buildContextExcludesList(ctxDir),
 	}
 
-	if ctxReader, err := archive.TarWithOptions(ctxDir, tarOpts); err == nil {
-		if _, err := io.Copy(tempFile, ctxReader); err == nil {
-			return tempFile.Name(), err
-		}
+	ctxReader, err := archive.TarWithOptions(ctxDir, tarOpts)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(tempFile, ctxReader)
+	if err == nil {
+		return tempFile.Name(), err
 	}
 	return "", err
 }

@@ -33,16 +33,16 @@ import (
 	"github.com/tailscale/hujson"
 )
 
-// devcontainerJsonSchema is the contents of the JSON schema against
+// devcontainerJSONSchema is the contents of the JSON schema against
 // which devcontainer.json files are validated.
 //
 //go:embed specs/devContainer.base.schema.json
-var devcontainerJsonSchema string
+var devcontainerJSONSchema string
 
-// devcontainerJsonSchemaPath is the path used for the JSON schema
+// devcontainerJSONSchemaPath is the path used for the JSON schema
 // when being added manually as resource for the validator; it allows
 // the schema contents to be referenced by other resources later on.
-const devcontainerJsonSchemaPath = "devContainer.base.schema.json"
+const devcontainerJSONSchemaPath = "devContainer.base.schema.json"
 
 // A Parser contains metadata about a target devcontainer.jkson file,
 // as well as the configuration for the intended devcontainer itself.
@@ -82,17 +82,17 @@ func NewParser(configPath string) Parser {
 // p.IsValidConfig should not be considered definitive.
 func (p *Parser) Validate() error {
 	slog.Debug("initializing JSON schema validator")
-	dcSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(devcontainerJsonSchema))
+	dcSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(devcontainerJSONSchema))
 	if err != nil {
 		slog.Error("unable to unmarshal embedded JSON schema", "error", err)
 		return err
 	}
 	c := jsonschema.NewCompiler()
-	if err := c.AddResource(devcontainerJsonSchemaPath, dcSchema); err != nil {
+	if err = c.AddResource(devcontainerJSONSchemaPath, dcSchema); err != nil {
 		slog.Error("unable to add embedded JSON schema as resource", "error", err)
 		return err
 	}
-	sch, err := c.Compile(devcontainerJsonSchemaPath)
+	sch, err := c.Compile(devcontainerJSONSchemaPath)
 	if err != nil {
 		slog.Error(fmt.Sprintf("unable to compile JSON schema: %#v", err))
 		return err

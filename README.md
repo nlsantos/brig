@@ -6,7 +6,7 @@ container for you to work in based on that configuration.
 `brig` attempts to conform to the [published devcontainer.json
 specs](https://github.com/devcontainers/spec); it's a long ways from
 it, but the goal is to eventually be an alternative to the [official
-CLI tool](https://github.com/devcontainers/cli).
+command-line tool](https://github.com/devcontainers/cli).
 
 `brig` also treats [podman](https://podman.io/) as a first-class
 citizen, since I prefer it over Docker.
@@ -14,7 +14,7 @@ citizen, since I prefer it over Docker.
 ## Why
 
 [devcontainers](https://containers.dev) are pretty nifty. It's also
-**very** nifty that, *technically*, they're not tied to Visual Studio
+**very** nifty that, _technically_, they're not tied to Visual Studio
 Code. This suits me, as I consider myself an Emacs user.
 
 For the most part, one can make do with relatively simple shell
@@ -35,15 +35,15 @@ engineer for the past ~10 years and most of the programming I've done
 have been little helper scripts in either shell or Python. I figured
 it was high time I got back into working on free software.
 
-## Why not...
+## Why not...?
 
-* **[devcontainers/cli](https://github.com/devcontainers/cli)**
-  * The official CLI tool is a Node app; 'nuff said.
-* **[UPwith-me/Container-Maker](https://github.com/UPwith-me/Container-Maker)**
-  * `cm` is pretty much built around Docker; it *might* be possible to
+- **[devcontainers/cli](https://github.com/devcontainers/cli)**
+  - The official command-line tool is a Node app; 'nuff said.
+- **[UPwith-me/Container-Maker](https://github.com/UPwith-me/Container-Maker)**
+  - `cm` is pretty much built around Docker; it _might_ be possible to
     use it with podman, but I found out about the project after I've
     already spent a couple of days writing `brig`
-  * I do find their [entrypoint
+  - I do find their [entrypoint
     script](https://github.com/UPwith-me/Container-Maker/blob/main/pkg/runner/entrypoint.go)
     pretty interesting, so I'll probably ~~steal~~ adopt that at some
     point

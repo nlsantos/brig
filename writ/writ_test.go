@@ -72,7 +72,7 @@ func TestValidate(t *testing.T) {
 		t.Run("AgainstValidSamples", func(t *testing.T) {
 			for _, path := range pathsValidSamples {
 				p := NewParser(path)
-				if err := p.Validate(); err != nil {
+				if err = p.Validate(); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -89,7 +89,7 @@ func TestValidate(t *testing.T) {
 		t.Run("AgainstInvalidSamples", func(t *testing.T) {
 			for _, path := range pathsInvalidSamples {
 				p := NewParser(path)
-				if err := p.Validate(); err == nil {
+				if err = p.Validate(); err == nil {
 					t.Fatal("known-invalid sample passed validation: ", path)
 				}
 			}
