@@ -131,10 +131,14 @@ func (p *Parser) Parse() error {
 
 	slog.Debug("performing value normalization")
 	if p.Config.DockerFile != nil {
-		// Convert to absolute path; its value is relative to the path
-		// of the referencing devcontainer.json
-		parentPath := filepath.Join(filepath.Dir(p.Filepath), *p.Config.DockerFile)
-		*p.Config.DockerFile = parentPath
+		// Convert to a path usable for building images
+		buildablePath, err := filepath.Rel(*p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), *p.Config.DockerFile))
+		if err != nil {
+			slog.Error("unable to build relative path", "root/dockerFIle", *p.Config.DockerFile, "error", err)
+			return err
+		}
+		slog.Debug("converting value to buildable path", "root/dockerFile", *p.Config.DockerFile, "actual", buildablePath)
+		*p.Config.DockerFile = buildablePath
 	}
 
 	return nil
