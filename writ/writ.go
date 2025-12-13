@@ -118,6 +118,8 @@ func (p *Parser) Validate() error {
 //
 // Will refuse to parse unless the contents are determined to conform
 // to the official JSON Schema spec.
+//
+// TODO: Add support for other parts of the spec. (Ongoing)
 func (p *Parser) Parse() error {
 	if !p.IsValidConfig {
 		return errors.New("devcontainer.json flagged invalid")
@@ -130,6 +132,26 @@ func (p *Parser) Parse() error {
 	}
 
 	slog.Debug("performing value normalization")
+	if p.Config.Context == nil {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		slog.Debug("no value given; using current working directory", "root/context", cwd)
+		// Use the current working directory as context for builds if
+		// none is given
+		*p.Config.Context = cwd
+	} else {
+		// The value of context is relative to the devcontainer.json
+		baseDir := filepath.Base(p.Filepath)
+		contextPath, err := filepath.Abs(filepath.Join(baseDir, *p.Config.Context))
+		if err != nil {
+			return err
+		}
+		slog.Debug("converting value to absolute path", "root/context", *p.Config.Context, "actual", contextPath)
+		*p.Config.Context = contextPath
+	}
+
 	if p.Config.DockerFile != nil {
 		// Convert to a path usable for building images
 		buildablePath, err := filepath.Rel(*p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), *p.Config.DockerFile))
@@ -139,6 +161,14 @@ func (p *Parser) Parse() error {
 		}
 		slog.Debug("converting value to buildable path", "root/dockerFile", *p.Config.DockerFile, "actual", buildablePath)
 		*p.Config.DockerFile = buildablePath
+	}
+
+	// TODO: Investigate if "/workspace" actual is the default value
+	// that's supposed to be used here.
+	if p.Config.WorkspaceFolder == nil {
+		defaultWorkspaceFolder := "/workspace"
+		p.Config.WorkspaceFolder = &defaultWorkspaceFolder
+		slog.Debug("no value given; using current default value", "root/workspaceFolder", *p.Config.WorkspaceFolder)
 	}
 
 	return nil
