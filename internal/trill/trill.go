@@ -22,13 +22,13 @@ import (
 	"log/slog"
 	"os"
 
-	dockerclient "github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
 )
 
 // A Client holds metadata for communicating with Podman/Docker.
 type Client struct {
-	DockerClient *dockerclient.Client
-	SocketAddr   string
+	MobyClient *mobyclient.Client
+	SocketAddr string
 }
 
 // NewClient returns a Client that's set to communicate with
@@ -39,12 +39,9 @@ type Client struct {
 func NewClient(socketAddr string) *Client {
 	c := &Client{SocketAddr: getSocketAddr(socketAddr)}
 
-	if dockerClient, err := dockerclient.NewClientWithOpts(
-		dockerclient.WithHost(c.SocketAddr),
-		dockerclient.WithAPIVersionNegotiation(),
-	); err == nil {
-		c.DockerClient = dockerClient
-		defer c.DockerClient.Close()
+	if mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr)); err == nil {
+		c.MobyClient = mobyClient
+		defer c.MobyClient.Close()
 	} else {
 		panic(err)
 	}

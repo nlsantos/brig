@@ -25,9 +25,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/docker/docker/api/types/build"
-	"github.com/docker/docker/api/types/container"
 	"github.com/moby/go-archive"
+	"github.com/moby/moby/api/types/container"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/nlsantos/brig/writ"
 	"golang.org/x/term"
@@ -62,13 +62,13 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
 
 	// TODO: Support more of the build options offered by the
 	// devcontainer spec
-	buildOpts := build.ImageBuildOptions{
+	buildOpts := mobyclient.ImageBuildOptions{
 		Context:    contextArchive,
 		Dockerfile: *p.Config.DockerFile,
 		Remove:     true,
 		Tags:       []string{tag},
 	}
-	buildResp, err := c.DockerClient.ImageBuild(context.Background(), contextArchive, buildOpts)
+	buildResp, err := c.MobyClient.ImageBuild(context.Background(), contextArchive, buildOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -117,10 +117,15 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		},
 	}
 	slog.Debug("using host config", "config", hostCfg)
+	createOpts := mobyclient.ContainerCreateOptions{
+		Config:     &containerCfg,
+		HostConfig: &hostCfg,
+		Name:       containerName,
+	}
 
 	ctx := context.Background()
 	containerID := ""
-	if resp, err := c.DockerClient.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, containerName); err == nil {
+	if resp, err := c.MobyClient.ContainerCreate(ctx, createOpts); err == nil {
 		containerID = resp.ID
 	} else {
 		panic(err)
@@ -131,14 +136,14 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	// of that is needing to input something after the container is
 	// attached to, to get, say, the shell prompt to appear.
 	slog.Debug("attempting to attach to container", "id", containerID)
-	attachOpts := container.AttachOptions{
+	attachOpts := mobyclient.ContainerAttachOptions{
 		Logs:   true,
 		Stderr: true,
 		Stdin:  true,
 		Stdout: true,
 		Stream: true,
 	}
-	resp, err := c.DockerClient.ContainerAttach(ctx, containerID, attachOpts)
+	resp, err := c.MobyClient.ContainerAttach(ctx, containerID, attachOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -178,7 +183,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	slog.Debug("attempting to start container", "id", containerID)
 	// TODO: Support the container initialization options/operations
 	// exposed by the devcontainer spec
-	if err := c.DockerClient.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+	if _, err := c.MobyClient.ContainerStart(ctx, containerID, mobyclient.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
 	slog.Debug("container started successfully", "id", containerID)
