@@ -1,0 +1,255 @@
+/*
+   trill: a lightweight wrapper for Podman/Docker REST API calls
+   Copyright (C) 2025  Neil Santos
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+*/
+
+package trill
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sync"
+
+	"github.com/docker/docker/api/types/build"
+	"github.com/docker/docker/api/types/container"
+	"github.com/moby/go-archive"
+	"github.com/moby/patternmatcher/ignorefile"
+	"github.com/nlsantos/brig/writ"
+	"golang.org/x/term"
+)
+
+// Build the OCI image to be used by the devcontainer.
+//
+// Requires metadata parsed from a devccontainer.json configuration
+// file and a tag to apply to the built OCI image.
+//
+// TODO: Add a flag to toggle deletion of the context tarball after
+// the creation of the OCI image
+func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
+	// While it's possible to have the REST API build an OCI image
+	// without having an intermediary tarball, I like having it around
+	// so it's easier to debug issues pertaining to the context
+	// tarball.
+	contextArchivePath, err := buildContextArchive(*p.Config.Context)
+	if err != nil {
+		panic(err)
+	}
+	contextArchive, err := os.Open(contextArchivePath)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		contextArchive.Close()
+		if err := os.Remove(contextArchive.Name()); err != nil {
+			slog.Error("failed cleaning up context archive", "path", contextArchive.Name(), "error", err)
+		}
+	}()
+
+	// TODO: Support more of the build options offered by the
+	// devcontainer spec
+	buildOpts := build.ImageBuildOptions{
+		Context:    contextArchive,
+		Dockerfile: *p.Config.DockerFile,
+		Remove:     true,
+		Tags:       []string{tag},
+	}
+	buildResp, err := c.DockerClient.ImageBuild(context.Background(), contextArchive, buildOpts)
+	if err != nil {
+		panic(err)
+	}
+	defer buildResp.Body.Close()
+
+	decoder := json.NewDecoder(buildResp.Body)
+	for {
+		var msg struct {
+			Stream string `json:"stream"`
+			Error  string `json:"error"`
+		}
+
+		if err := decoder.Decode(&msg); err == io.EOF {
+			break
+		} else if err != nil {
+			slog.Error("error decoding JSON", "context", err)
+			panic(err)
+		}
+
+		// Maybe add fluff to the output to make it prettier?
+		if msg.Stream != "" {
+			fmt.Printf("builder: %s", msg.Stream)
+		}
+		if msg.Error != "" {
+			fmt.Printf("builder: [ERROR] %s\n", msg.Error)
+		}
+	}
+}
+
+// Start a container and attach to it to enable its usage.
+//
+// Requires metadata parsed from a devcontainer.json config, the
+// tag/image name for the OCI image to use as base, and a name for the
+// created container.
+func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string) {
+	slog.Debug("attempting to start and attach to container based on tag", "tag", tag)
+	containerCfg := container.Config{
+		Image: tag,
+		Tty:   true,
+	}
+	slog.Debug("using container config", "config", containerCfg)
+	hostCfg := container.HostConfig{
+		AutoRemove: true,
+		Binds: []string{
+			fmt.Sprintf("%s:%s", *p.Config.Context, *p.Config.WorkspaceFolder),
+		},
+	}
+	slog.Debug("using host config", "config", hostCfg)
+
+	ctx := context.Background()
+	containerID := ""
+	if resp, err := c.DockerClient.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, containerName); err == nil {
+		containerID = resp.ID
+	} else {
+		panic(err)
+	}
+	slog.Debug("container created successfully", "id", containerID)
+	// Attaching to a container before it even starts is a way to get
+	// around possibly missing a log replay upon attachment. A symptom
+	// of that is needing to input something after the container is
+	// attached to, to get, say, the shell prompt to appear.
+	slog.Debug("attempting to attach to container", "id", containerID)
+	attachOpts := container.AttachOptions{
+		Logs:   true,
+		Stderr: true,
+		Stdin:  true,
+		Stdout: true,
+		Stream: true,
+	}
+	resp, err := c.DockerClient.ContainerAttach(ctx, containerID, attachOpts)
+	if err != nil {
+		panic(err)
+	}
+	slog.Debug("successfully attached to container", "id", containerID)
+	defer resp.Close()
+	// Switching the terminal to raw mode ensures that input with
+	// control characters (e.g., Ctrl-D) get passed through to the
+	// container
+	slog.Debug("switching terminal to raw mode")
+	if fd := int(os.Stdin.Fd()); term.IsTerminal(fd) {
+		if oldState, err := term.MakeRaw(fd); err != nil {
+			panic(err)
+		} else {
+			defer func() {
+				slog.Debug("restoring terminal state")
+				term.Restore(fd, oldState)
+			}()
+		}
+	}
+	// This allows usage of the container in a terminal as one would,
+	// e.g., a regular shell
+	slog.Debug("setting up terminal input/output")
+	var wg sync.WaitGroup
+	wg.Go(func() { io.Copy(os.Stdout, resp.Reader) })
+	go io.Copy(resp.Conn, os.Stdin)
+
+	slog.Debug("attempting to start container", "id", containerID)
+	// TODO: Support the container initialization options/operations
+	// exposed by the devcontainer spec
+	if err := c.DockerClient.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+		panic(err)
+	}
+	slog.Debug("container started successfully", "id", containerID)
+	wg.Wait()
+	slog.Debug("detached from container", "id", containerID)
+}
+
+// Build a list of files to be excluded in the creation of the context tarball.
+//
+// Requires ctxDir, the path of the context directory to search
+// .containerignore/.dockerignore in.
+//
+// This integrates support for .containerignore/.dockerignore during
+// the creation of the context tarball.
+//
+// TODO: Investigate how Podman and Docker handle ignore files deeper
+// in the context's directory structure; it might be necessary to walk
+// the directory and gather all of them.
+func buildContextExcludesList(ctxDir string) []string {
+	slog.Debug("checking for .containerignore/.dockerignore in context directory")
+	ignoreFile := filepath.Join(ctxDir, ".containerignore")
+	if _, err := os.Stat(ignoreFile); os.IsNotExist(err) {
+		ignoreFile = filepath.Join(ctxDir, ".dockerignore")
+	}
+
+	var excludes []string
+	f, err := os.Open(ignoreFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return excludes
+		}
+		slog.Error(fmt.Sprintf("error opening %s; %v", ignoreFile, err))
+		panic(err)
+	}
+	defer f.Close()
+
+	if excludes, err = ignorefile.ReadAll(f); err != nil {
+		slog.Error(fmt.Sprintf("error parsing %s; %v", ignoreFile, err))
+	}
+	slog.Debug(fmt.Sprintf("applying %d exclusion patterns", len(excludes)))
+	return excludes
+}
+
+// Gather the context directory into a tarball.
+//
+// Creates a tarball rooted at ctxDir and returns the path to the
+// created file if successful. If any errors are encountered, returns
+// an empty string and the error.
+//
+// The created file is guaranteed to be unique in the system at the
+// time of creation.
+//
+// While it's possible to build an OCI image without an intermediary
+// file, having it makes it easier to debug issues related to the
+// context tarball.
+func buildContextArchive(ctxDir string) (string, error) {
+	tempFile, err := os.CreateTemp("", fmt.Sprintf(".ctx-%s-*.tar.gz", filepath.Base(ctxDir)))
+	slog.Debug(fmt.Sprintf("building a context archive for the container as %s", tempFile.Name()))
+	if err != nil {
+		panic(err)
+	}
+	defer tempFile.Close()
+
+	tarOpts := &archive.TarOptions{
+		// Assign ownership of files to root so we don't run into
+		// namespace mapping issues when using Podman.
+		//
+		// TODO: Switch this over to the value of remoteUser if
+		// specified in the devcontainer config.
+		ChownOpts: &archive.ChownOpts{
+			UID: 0,
+			GID: 0,
+		},
+		Compression:     archive.Gzip,
+		ExcludePatterns: buildContextExcludesList(ctxDir),
+	}
+
+	if ctxReader, err := archive.TarWithOptions(ctxDir, tarOpts); err == nil {
+		if _, err := io.Copy(tempFile, ctxReader); err == nil {
+			return tempFile.Name(), err
+		}
+	}
+	return "", err
+}
