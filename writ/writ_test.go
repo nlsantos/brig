@@ -51,8 +51,8 @@ func TestParseSimple(t *testing.T) {
 
 	// Check fields against known values
 	assert.Equal(t, *p.Config.Name, "simple-ish devcontainer.json", "fields not matching")
-	assert.Equal(t, *p.Config.Context, "..", "fields not matching")
-	assert.Equal(t, *p.Config.DockerFile, "./Containerfile", "fields not matching")
+	assert.Equal(t, *p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), ".."), "fields not matching")
+	assert.Equal(t, *p.Config.DockerFile, "parse/Containerfile", "fields not matching")
 	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
 }
 

@@ -143,11 +143,7 @@ func (p *Parser) Parse() error {
 		*p.Config.Context = cwd
 	} else {
 		// The value of context is relative to the devcontainer.json
-		baseDir := filepath.Base(p.Filepath)
-		contextPath, err := filepath.Abs(filepath.Join(baseDir, *p.Config.Context))
-		if err != nil {
-			return err
-		}
+		contextPath := filepath.Join(filepath.Dir(p.Filepath), *p.Config.Context)
 		slog.Debug("converting value to absolute path", "root/context", *p.Config.Context, "actual", contextPath)
 		*p.Config.Context = contextPath
 	}
