@@ -22,4 +22,5 @@ fi
 	--user root:root \
 	--env-file .super-linter.env \
 	-v "$(pwd)":/tmp/lint:Z \
+	-v "$(git rev-parse --git-common-dir)":"$(git rev-parse --git-common-dir)":ro \
 	ghcr.io/super-linter/super-linter:latest
