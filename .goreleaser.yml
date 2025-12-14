@@ -1,0 +1,58 @@
+version: 2.6
+
+before:
+    hooks:
+        - go mod tidy
+
+builds:
+    - main: ./cmd
+      id: "brig"
+      binary: brig
+      ldflags:
+        - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
+      env:
+        - CGO_ENABLED=0
+      goos:
+        - linux
+        - darwin
+      goarch:
+        - amd64
+
+    # - main: ./cmd
+    #   id: "brig-win"
+    #   binary: brig-win
+    #   ldflags:
+    #     - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
+    #   env:
+    #     - CGO_ENABLED=0
+    #   goos:
+    #     - windows
+    #   goarch:
+    #     - amd64
+    #   hooks:
+    #     post:
+    #         - upx -9 "{{ .Path }}"
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.xz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    wrap_in_directory: true
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}--checksums.txt"
+release:
+  draft: false
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
