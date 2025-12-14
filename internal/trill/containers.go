@@ -22,8 +22,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"github.com/moby/go-archive"
 	"github.com/moby/moby/api/types/container"
@@ -124,18 +126,17 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	}
 
 	ctx := context.Background()
-	containerID := ""
-	if resp, err := c.MobyClient.ContainerCreate(ctx, createOpts); err == nil {
-		containerID = resp.ID
-	} else {
+	if resp, err := c.MobyClient.ContainerCreate(ctx, createOpts); err != nil {
 		panic(err)
+	} else {
+		c.ContainerID = resp.ID
 	}
-	slog.Debug("container created successfully", "id", containerID)
+	slog.Debug("container created successfully", "id", c.ContainerID)
 	// Attaching to a container before it even starts is a way to get
 	// around possibly missing a log replay upon attachment. A symptom
 	// of that is needing to input something after the container is
 	// attached to, to get, say, the shell prompt to appear.
-	slog.Debug("attempting to attach to container", "id", containerID)
+	slog.Debug("attempting to attach to container", "id", c.ContainerID)
 	attachOpts := mobyclient.ContainerAttachOptions{
 		Logs:   true,
 		Stderr: true,
@@ -143,11 +144,12 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		Stdout: true,
 		Stream: true,
 	}
-	resp, err := c.MobyClient.ContainerAttach(ctx, containerID, attachOpts)
+	resp, err := c.MobyClient.ContainerAttach(ctx, c.ContainerID, attachOpts)
 	if err != nil {
 		panic(err)
 	}
-	slog.Debug("successfully attached to container", "id", containerID)
+	c.ResizeContainer()
+	slog.Debug("successfully attached to container", "id", c.ContainerID)
 	defer resp.Close()
 	// Switching the terminal to raw mode ensures that input with
 	// control characters (e.g., Ctrl-D) get passed through to the
@@ -158,8 +160,19 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		if err != nil {
 			panic(err)
 		}
+		// Hook into resize signals
+		resizeCh := make(chan os.Signal, 1)
+		signal.Notify(resizeCh, syscall.SIGWINCH)
+
+		go func() {
+			for range resizeCh {
+				c.ResizeContainer()
+			}
+		}()
+
 		defer func() {
 			slog.Debug("restoring terminal state")
+			signal.Stop(resizeCh)
 			if err := term.Restore(fd, oldState); err != nil {
 				panic(err)
 			}
@@ -180,15 +193,34 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		}
 	}()
 
-	slog.Debug("attempting to start container", "id", containerID)
+	slog.Debug("attempting to start container", "id", c.ContainerID)
 	// TODO: Support the container initialization options/operations
 	// exposed by the devcontainer spec
-	if _, err := c.MobyClient.ContainerStart(ctx, containerID, mobyclient.ContainerStartOptions{}); err != nil {
+	if _, err := c.MobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
-	slog.Debug("container started successfully", "id", containerID)
+	slog.Debug("container started successfully", "id", c.ContainerID)
 	wg.Wait()
-	slog.Debug("detached from container", "id", containerID)
+	slog.Debug("detached from container", "id", c.ContainerID)
+}
+
+// Resize the container's internal pseudo-TTY based on the current
+// terminal's properties.
+//
+// Does nothing if stdin isn't a terminal, and panics if it encounters
+// an error attempting to resize the pseudo-TTY.
+func (c *Client) ResizeContainer() {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return
+	}
+	w, h, _ := term.GetSize(fd)
+	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
+		Height: uint(h),
+		Width:  uint(w),
+	}); err != nil {
+		panic(err)
+	}
 }
 
 // Build a list of files to be excluded in the creation of the context tarball.

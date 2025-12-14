@@ -27,8 +27,9 @@ import (
 
 // A Client holds metadata for communicating with Podman/Docker.
 type Client struct {
-	MobyClient *mobyclient.Client
-	SocketAddr string
+	ContainerID string
+	MobyClient  *mobyclient.Client
+	SocketAddr  string
 }
 
 // NewClient returns a Client that's set to communicate with
