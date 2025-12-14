@@ -17,6 +17,7 @@ func TestParse(t *testing.T) {
 
 	p := NewParser(filepath.Join("testdata", "parse", "simple-devcontainer.json"))
 	// Parsing an unvalidated file should fail
+	assert.False(t, p.IsValidConfig)
 	if err := p.Parse(); err == nil {
 		t.Fatal("parsed an invalid/unvalidated devcontainer.json")
 	}
@@ -24,6 +25,7 @@ func TestParse(t *testing.T) {
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation")
 	}
+	assert.True(t, p.IsValidConfig)
 	// This should now work
 	if err := p.Parse(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed parsing")
