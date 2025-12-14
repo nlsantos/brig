@@ -126,10 +126,10 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	}
 
 	ctx := context.Background()
-	if resp, err := c.MobyClient.ContainerCreate(ctx, createOpts); err != nil {
-		panic(err)
-	} else {
+	if resp, err := c.MobyClient.ContainerCreate(ctx, createOpts); err == nil {
 		c.ContainerID = resp.ID
+	} else {
+		panic(err)
 	}
 	slog.Debug("container created successfully", "id", c.ContainerID)
 	// Attaching to a container before it even starts is a way to get
@@ -214,10 +214,17 @@ func (c *Client) ResizeContainer() {
 	if !term.IsTerminal(fd) {
 		return
 	}
-	w, h, _ := term.GetSize(fd)
+	w, h, err := term.GetSize(fd)
+	if err != nil {
+		return
+	}
 	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
-		Height: uint(h),
-		Width:  uint(w),
+		// Typecasting checks turned off; if the terminal dimensions
+		// ever have negative values, or values large enough to
+		// overflow, I feel that that's an issue on the machine that
+		// needs to be fixed, not necessarily a bug in brig
+		Height: uint(h), //nolint:gosec
+		Width:  uint(w), //nolint:gosec
 	}); err != nil {
 		panic(err)
 	}
