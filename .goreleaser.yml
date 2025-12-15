@@ -18,20 +18,20 @@ builds:
       goarch:
         - amd64
 
-    # - main: ./cmd
-    #   id: "brig-win"
-    #   binary: brig-win
-    #   ldflags:
-    #     - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
-    #   env:
-    #     - CGO_ENABLED=0
-    #   goos:
-    #     - windows
-    #   goarch:
-    #     - amd64
-    #   hooks:
-    #     post:
-    #         - upx -9 "{{ .Path }}"
+    - main: ./cmd
+      id: "brig-win"
+      binary: brig-win
+      ldflags:
+        - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
+      env:
+        - CGO_ENABLED=0
+      goos:
+        - windows
+      goarch:
+        - amd64
+      hooks:
+        post:
+            - upx -9 "{{ .Path }}"
 
 archives:
   - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
