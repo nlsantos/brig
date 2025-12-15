@@ -156,7 +156,8 @@ func (p *Parser) Parse() error {
 			return err
 		}
 		slog.Debug("converting value to buildable path", "root/dockerFile", *p.Config.DockerFile, "actual", buildablePath)
-		*p.Config.DockerFile = buildablePath
+		// ToSlash is necessary for usage on Windows
+		*p.Config.DockerFile = filepath.ToSlash(buildablePath)
 	}
 
 	if p.Config.Init == nil {
