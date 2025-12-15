@@ -22,10 +22,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sync"
-	"syscall"
 
 	"github.com/moby/go-archive"
 	"github.com/moby/moby/api/types/container"
@@ -175,7 +173,6 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	if err != nil {
 		panic(err)
 	}
-	c.ResizeContainer()
 	slog.Debug("successfully attached to container", "id", c.ContainerID)
 	defer resp.Close()
 	// Switching the terminal to raw mode ensures that input with
@@ -187,19 +184,8 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		if err != nil {
 			panic(err)
 		}
-		// Hook into resize signals
-		resizeCh := make(chan os.Signal, 1)
-		signal.Notify(resizeCh, syscall.SIGWINCH)
-
-		go func() {
-			for range resizeCh {
-				c.ResizeContainer()
-			}
-		}()
-
 		defer func() {
 			slog.Debug("restoring terminal state")
-			signal.Stop(resizeCh)
 			if err := term.Restore(fd, oldState); err != nil {
 				panic(err)
 			}
@@ -226,6 +212,19 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	if _, err := c.MobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
+	// Resize the pseudo-TTY; Docker apparently doesn't like doing it until
+	// after the container is started.
+	//
+	// Also, on Windows, it's apparently more reliable to get the terminal size
+	// from stdout, as using stdin results in an invalid handle error.
+	slog.Debug("attempting to resize container's pseudo-TTY")
+	if w, h, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
+		c.ResizeContainer(uint(h), uint(w))
+		slog.Debug("setting up hooks to handle terminal resizing")
+		c.listenForTerminalResize()
+	} else {
+		slog.Error(fmt.Sprintf("%v", err))
+	}
 	slog.Debug("container started successfully", "id", c.ContainerID)
 	wg.Wait()
 	slog.Debug("detached from container", "id", c.ContainerID)
@@ -236,22 +235,10 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 //
 // Does nothing if stdin isn't a terminal, and panics if it encounters
 // an error attempting to resize the pseudo-TTY.
-func (c *Client) ResizeContainer() {
-	fd := int(os.Stdin.Fd())
-	if !term.IsTerminal(fd) {
-		return
-	}
-	w, h, err := term.GetSize(fd)
-	if err != nil {
-		return
-	}
+func (c *Client) ResizeContainer(h uint, w uint) {
 	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
-		// Typecasting checks turned off; if the terminal dimensions
-		// ever have negative values, or values large enough to
-		// overflow, I feel that that's an issue on the machine that
-		// needs to be fixed, not necessarily a bug in brig
-		Height: uint(h), //nolint:gosec
-		Width:  uint(w), //nolint:gosec
+		Height: h,
+		Width:  w,
 	}); err != nil {
 		panic(err)
 	}
