@@ -42,3 +42,12 @@ That said, here's a list of what `brig` can do:
 - [x] Attaching the terminal to the container
   - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
 
+## Incompatibilities
+
+These are the known incompatibilities with the way Visual Studio Code and/or the official devcontainer command line tool works. They _may_ change in the future, depending on patches or changes in my preferred workflow.
+
+### Ephemeral containers
+
+I like my devcontainers ephemeral and pretty much stateless. On the other hand, Visual Studio Code (and possibly the official command line tool) keeps around stopped containers and just restarts them on subsequent usage.
+
+The spec, to my knowledge, doesn't mandate that stopped containers be kept around; it's _implied_ (see the values for the `shutdownAction` field), but I haven't (yet?) come across anything in the way devcontainers work that would necessitate keeping stopped containers around, so I just wrote `brig` to conform to my preferences.
