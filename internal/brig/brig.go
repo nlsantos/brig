@@ -60,6 +60,7 @@ func NewCommand(appName string, appVersion string) {
 		Verbose bool          `getopt:"-v --verbose enable diagnostic messages"`
 		Config  options.Flags `getopt:"-c --config=PATH path to rc file"`
 		Debug   bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		Socket  string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
 		Version bool          `getopt:"-V --version display version informaiton then exit"`
 	}{}
 
@@ -131,7 +132,7 @@ func NewCommand(appName string, appVersion string) {
 		panic(err)
 	}
 
-	trillClient := trill.NewClient("")
+	trillClient := trill.NewClient(opts.Socket)
 	imageName := createImageTagBase(&parser)
 	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
 	trillClient.BuildContainerImage(&parser, imageTag)
