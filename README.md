@@ -25,7 +25,7 @@ engineer for the past ~10 years and most of the programming I've done have been 
 - **[devcontainers/cli](https://github.com/devcontainers/cli)**
   - The official command-line tool is a Node app; 'nuff said.
 - **[UPwith-me/Container-Maker](https://github.com/UPwith-me/Container-Maker)**
-  - `cm` is pretty much built around Docker; it _might_ be possible to use it with podman, but I found out about the project after I've already spent a couple of days writing `brig`
+  - ~~`cm` is pretty much built around Docker; it _might_ be possible to use it with podman,~~ ([`cm` supports Podman](https://github.com/UPwith-me/Container-Maker?tab=readme-ov-file#rootless-support)) but I found out about the project after I've already spent a couple of days writing `brig`
   - I do find their [entrypoint script](https://github.com/UPwith-me/Container-Maker/blob/main/pkg/runner/entrypoint.go) pretty interesting, so I'll probably ~~steal~~ adopt that at some point
 
 ## What works
@@ -41,6 +41,10 @@ That said, here's a list of what `brig` can do:
 - [x] Creating a container based on the image it builds
 - [x] Attaching the terminal to the container
   - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
+- [x] Specifying a different UID to use inside the devcontainer via the `remoteUser` field
+- [x] Specifying kernel capabilities to add to the container via the `capAdd` field
+- [x] Specifying that the container should run in privileged mode via the `privileged` field
+- [x] Mounting volumes as specified by the `mounts` field
 
 ## Incompatibilities
 
