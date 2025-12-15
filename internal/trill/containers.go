@@ -29,6 +29,7 @@ import (
 
 	"github.com/moby/go-archive"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	mobyclient "github.com/moby/moby/client"
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/nlsantos/brig/writ"
@@ -127,6 +128,22 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	if p.Config.CapAdd != nil {
 		hostCfg.CapAdd = p.Config.CapAdd
 	}
+	if p.Config.Mounts != nil {
+		var mounts = []mount.Mount{}
+		for _, mountEntry := range p.Config.Mounts {
+			mountItem := mount.Mount{
+				Source: *mountEntry.Mount.Source,
+				Target: mountEntry.Mount.Target,
+			}
+			switch {
+			case mountEntry.Mount.Type == "bind":
+				mountItem.Type = mount.TypeBind
+			case mountEntry.Mount.Type == "volume":
+				mountItem.Type = mount.TypeVolume
+			}
+			mounts = append(mounts, mountItem)
+		}
+		hostCfg.Mounts = mounts
 	}
 	slog.Debug("using host config", "config", hostCfg)
 	createOpts := mobyclient.ContainerCreateOptions{
