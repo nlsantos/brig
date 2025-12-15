@@ -6,9 +6,10 @@
     "APP_PATH": "${containerWorkspaceFolder}",
     "SHELL": "/bin/bash"
   },
-  "mounts": [{
-    "source": "${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud",
-    "target": "/root/.config/gcloud",
-    "type": "bind"
-  }]
+  // TODO: Investigate how Visual Studio Code or the official CLI tool
+  // deals with volumes if they don't yet exist; are they created
+  // automatically?
+  "mounts": [
+    "source=go-cache,target=/root/go,type=volume"
+  ]
 }
