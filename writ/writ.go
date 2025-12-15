@@ -159,6 +159,37 @@ func (p *Parser) Parse() error {
 		*p.Config.DockerFile = buildablePath
 	}
 
+	if p.Config.Init == nil {
+		defInit := false
+		p.Config.Init = &defInit
+	}
+
+	if p.Config.OverrideCommand == nil {
+		defOverride := p.Config.DockerComposeFile != nil
+		p.Config.OverrideCommand = &defOverride
+	}
+
+	if p.Config.Privileged == nil {
+		defPrivileged := false
+		p.Config.Privileged = &defPrivileged
+	}
+
+	if p.Config.ShutdownAction == nil {
+		defShutdownAction := writ.ShutdownActionNone
+		if p.Config.DockerComposeFile != nil {
+			defShutdownAction = writ.StopCompose
+		} else {
+			defShutdownAction = writ.StopContainer
+		}
+		p.Config.ShutdownAction = &defShutdownAction
+	}
+
+	if p.Config.UpdateRemoteUserUID == nil {
+		defUpdateRemoteUserUID := true
+		// The spec states this defaults to true
+		p.Config.UpdateRemoteUserUID = &defUpdateRemoteUserUID
+	}
+
 	// TODO: Investigate if "/workspace" actual is the default value
 	// that's supposed to be used here.
 	if p.Config.WorkspaceFolder == nil {
