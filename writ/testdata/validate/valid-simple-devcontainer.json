@@ -24,11 +24,6 @@
     },
   },
   "forwardPorts": [],
-  // Refer to invalid-simple-devcontainer.json for a version of this
-  // config that should be invalid but passes validation, anyway.
-  //
-  // The following is an example of how values inside thie field
-  // should be specified.
   "mounts": [{
     "source": "${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud",
     "target": "/root/.config/gcloud",
