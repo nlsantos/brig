@@ -108,15 +108,25 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
 func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string) {
 	slog.Debug("attempting to start and attach to container based on tag", "tag", tag)
 	containerCfg := container.Config{
-		Image: tag,
-		Tty:   true,
+		Image:     tag,
+		OpenStdin: true,
+		Tty:       true,
+	}
+	if p.Config.RemoteUser != nil {
+		containerCfg.User = *p.Config.RemoteUser
 	}
 	slog.Debug("using container config", "config", containerCfg)
 	hostCfg := container.HostConfig{
 		AutoRemove: true,
 		Binds: []string{
+			// By default, the context is mounted as the workspace folder
 			fmt.Sprintf("%s:%s", *p.Config.Context, *p.Config.WorkspaceFolder),
 		},
+		Privileged: *p.Config.Privileged,
+	}
+	if p.Config.CapAdd != nil {
+		hostCfg.CapAdd = p.Config.CapAdd
+	}
 	}
 	slog.Debug("using host config", "config", hostCfg)
 	createOpts := mobyclient.ContainerCreateOptions{
