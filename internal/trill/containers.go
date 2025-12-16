@@ -310,8 +310,10 @@ func buildContextArchive(ctxDir string) (string, error) {
 			UID: 0,
 			GID: 0,
 		},
-		Compression:     archive.Gzip,
-		ExcludePatterns: buildContextExcludesList(ctxDir),
+		Compression:      archive.Gzip,
+		ExcludePatterns:  buildContextExcludesList(ctxDir),
+		IncludeSourceDir: false,
+		NoLchown:         true,
 	}
 
 	ctxReader, err := archive.TarWithOptions(ctxDir, tarOpts)
