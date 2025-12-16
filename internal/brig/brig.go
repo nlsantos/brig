@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/MakeNowJust/heredoc"
@@ -135,7 +136,9 @@ func NewCommand(appName string, appVersion string) {
 	trillClient := trill.NewClient(opts.Socket)
 	imageName := createImageTagBase(&parser)
 	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
+	slog.Debug("building container image", "tag", imageTag)
 	trillClient.BuildContainerImage(&parser, imageTag)
+	slog.Debug("starting devcontainer", "tag", imageTag, "name", imageName)
 	trillClient.StartContainer(&parser, imageTag, imageName)
 }
 
@@ -190,6 +193,10 @@ func createImageTagBase(p *writ.Parser) string {
 	} else {
 		retval = fmt.Sprintf("%s--%s", repoName, refName.Short())
 	}
+	invalidContainerNamePattern := regexp.MustCompile("[^a-zA-Z0-9_.-]")
+	// Replace non-valid characters for container names with an
+	// underscore
+	retval = invalidContainerNamePattern.ReplaceAllString(retval, "_")
 
 	return retval
 }
