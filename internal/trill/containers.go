@@ -133,10 +133,10 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 				Source: mountEntry.Mount.Source,
 				Target: mountEntry.Mount.Target,
 			}
-			switch {
-			case mountEntry.Mount.Type == "bind":
+			switch mountEntry.Mount.Type {
+			case "bind":
 				mountItem.Type = mount.TypeBind
-			case mountEntry.Mount.Type == "volume":
+			case "volume":
 				mountItem.Type = mount.TypeVolume
 			}
 			mounts = append(mounts, mountItem)
