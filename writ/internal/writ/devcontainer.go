@@ -183,7 +183,7 @@ type GPUClass struct {
 
 type Mount struct {
 	// Mount source.
-	Source *string `json:"source,omitempty"`
+	Source string `json:"source,omitempty"`
 	// Mount target.
 	Target string `json:"target"`
 	// Mount type.

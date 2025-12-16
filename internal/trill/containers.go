@@ -130,7 +130,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		var mounts = []mount.Mount{}
 		for _, mountEntry := range p.Config.Mounts {
 			mountItem := mount.Mount{
-				Source: *mountEntry.Mount.Source,
+				Source: mountEntry.Mount.Source,
 				Target: mountEntry.Mount.Target,
 			}
 			switch {

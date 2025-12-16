@@ -29,7 +29,7 @@ func (m *MountElement) UnmarshalJSON(data []byte) error {
 
 		switch splitSegment[0] {
 		case "source":
-			m.Mount.Source = &splitSegment[1]
+			m.Mount.Source = splitSegment[1]
 		case "target":
 			m.Mount.Target = splitSegment[1]
 		case "type":
