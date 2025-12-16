@@ -106,7 +106,12 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
 // created container.
 func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string) {
 	slog.Debug("attempting to start and attach to container based on tag", "tag", tag)
+	containerEnvs := []string{}
+	for key, val := range p.Config.ContainerEnv {
+		containerEnvs = append(containerEnvs, fmt.Sprintf("%s=%s", key, val))
+	}
 	containerCfg := container.Config{
+		Env:       containerEnvs,
 		Image:     tag,
 		OpenStdin: true,
 		Tty:       true,
