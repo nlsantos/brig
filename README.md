@@ -20,6 +20,16 @@ While those can be replicated (for the most part) using the aforementioned shell
 **I also wanted to learn Go.** I've been cosplaying as a DevOps
 engineer for the past ~10 years and most of the programming I've done have been little helper scripts in either shell or Python. I figured it was high time I got back into working on free software.
 
+## What does "podman as a first-class citizen" mean?
+
+The devcontainer spec is written primarily with the assumption that the underlying container platform is Docker. The naming of the fields (`dockerFile`, `dockerComposeFile`) attests to that.
+
+I only use Docker when I'm forced to; I prefer Podman primarily due to its rootless design. While `brig` uses Moby's packages, and I'm referencing the Docker REST API primarily, it's only ever going to be to the extent that Podman is able to stay compatible with it.
+
+Should the Moby packages ever become incompatible with Podman, `brig` will remain with the latest version that is. I will also never implement or integrate a devcontainer feature or capability that Podman does not support.
+
+Basically, the fact that `brig` works with Docker is a _side-effect_ of Podman's compatibility with the Docker REST API and Moby packages. I will make changes that promote feature parity, but if support for Docker becomes too onerous to maintain, I won't hesitate to drop it.
+
 ## Why not...?
 
 - **[devcontainers/cli](https://github.com/devcontainers/cli)**
@@ -30,12 +40,13 @@ engineer for the past ~10 years and most of the programming I've done have been 
 
 ## What works
 
-Keep in mind that `brig` is still very much pre-alpha software at this point. While as of [38d4ae1](https://github.com/nlsantos/brig/commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
+Keep in mind that `brig` is still very much alpha software at this point. While as of [38d4ae1](https://github.com/nlsantos/brig/commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
 
 That said, here's a list of what `brig` can do:
 
 - [x] Automatically finding `devcontainer.json` files as per the spec
   - [x] Supports specifying a path for a `devcontainer.json` through a command-line parameter, if your config doesn't conform to the usual naming
+- [x] Specifying the socket address to use to connect to the container daemon, in case `brig` can't find it automatically
 - [x] Validation of the target `devcontainer.json` file against the official spec
 - [x] Building an image based on the `dockerFile` field, targeting the value of the `context` field
 - [x] Creating a container based on the image it builds
@@ -55,3 +66,23 @@ These are the known incompatibilities with the way Visual Studio Code and/or the
 I like my devcontainers ephemeral and pretty much stateless. On the other hand, Visual Studio Code (and possibly the official command line tool) keeps around stopped containers and just restarts them on subsequent usage.
 
 The spec, to my knowledge, doesn't mandate that stopped containers be kept around; it's _implied_ (see the values for the `shutdownAction` field), but I haven't (yet?) come across anything in the way devcontainers work that would necessitate keeping stopped containers around, so I just wrote `brig` to conform to my preferences.
+
+### No dedicated build step
+
+Related to the previous point. I also prefer that changes to the devcontainers take effect immediately the next time I open it, as opposed to having to explicitly initiate a rebuild.
+
+I realize that larger codebases would likely benefit from a build-only step, as well as persistent containers: a <100MB codebase I work with that pulls a couple of >1GB images during building takes about 16 seconds from running `brig` to the prompt being ready, and that's with the image already having been built.
+
+However, I've found in practice that it's not necessarily an issue, as I spin up the devcontainer in a terminal and immediately switch back to Emacs to resume working.
+
+For what it's worth, I'm not _opposed_ to having a dedicated build step; I'm just not convinced of its necessity, and I'm wary of what I perceive would be a penalty to my workflow.
+
+### No runArgs support
+
+The devcontainer spec defines a field named `runArgs`. It's an array of command line parameters to pass to Docker when running the container. I think the intent is to allow passing args that aren't covered by other fields.
+
+It's commendable: it ensures that the spec doesn't have to cover _all_ use-cases, and permits integrating devcontainer usage in workflows the spec authors can't even imagine.
+
+However, owing to the fact that `brig` communicates with Podman and Docker via their REST API, I don't see a way of directly supporting `runArgs` aside from parsing each entry and trying to translate parameters into their API equivalents (if any).
+
+All this to say, I don't see `brig` ever supporting `runArgs`, barring a major architectural change.
