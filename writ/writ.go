@@ -26,11 +26,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/nlsantos/brig/writ/internal/writ"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/tailscale/hujson"
+	"mvdan.cc/sh/v3/shell"
 )
 
 // devcontainerJSONSchema is the contents of the JSON schema against
@@ -216,7 +218,83 @@ func (p *Parser) Parse() error {
 		slog.Debug("no value given; using current default value", "root/workspaceFolder", *p.Config.WorkspaceFolder)
 	}
 
+	slog.Debug("expanding variables", "section", "containerEnv")
+	if p.Config.ContainerEnv != nil {
+		for key, val := range p.Config.ContainerEnv {
+			p.Config.ContainerEnv[key] = p.ExpandEnv(val)
+		}
+	}
+
+	slog.Debug("expanding variables", "section", "mounts")
+	if p.Config.Mounts != nil {
+		for _, mount := range p.Config.Mounts {
+			mount.Mount.Source = p.ExpandEnv(mount.Mount.Source)
+			mount.Mount.Target = p.ExpandEnv(mount.Mount.Target)
+		}
+	}
+
 	return nil
+}
+
+// ExpandEnv is a thin wrapper around shell.Expand() that converts
+// special devcontainer spec variables so they are more easily parsed
+// like a regular shell variable.
+//
+// The devcontainer spec has special variable lookups that indicate
+// scope (the `localEnv:`, `containerEnv:`, and the undocumented `env:`
+// prefixes); unforunately, they also conflict with well-established
+// shell parameter expansion rules.
+//
+// When parsing strings that could conceivably contain env vars using
+// these prefixes, transform them to a form that lets them be passed
+// to shell.Expand() while still keeping the other expansion
+// capabilities.
+func (p *Parser) ExpandEnv(v string) string {
+	// These two prefixes are easy since they're just local var
+	// lookups, so they can just be discarded
+	localEnvPrefixes := regexp.MustCompile(`(\$\{)(env|localEnv):`)
+	v = localEnvPrefixes.ReplaceAllString(v, "$1")
+	// This is a little trickier. It's highly unlikely, but entirely
+	// *possible* that, after swapping in the prefix, the resulting
+	// variable name ends up clashing with an existing env var. In
+	// that case, that env var will be shadowed by an env var that
+	// doesn't have the prefix.
+	envPrefixes := regexp.MustCompile(`(\$\{containerEnv):`)
+	v = envPrefixes.ReplaceAllString(v, "${1}__")
+
+	retval, err := shell.Expand(v, p.expandEnv)
+	if err != nil {
+		slog.Debug("error expanding env var", "var", v, "error", err)
+	}
+	return retval
+}
+
+// expandEnv is the variable "storage" that provides values to
+// shell.Expand() when called by it.
+//
+// Expects v to be the string name of an environment variable to look
+// up. If it is one of the specially named variables in the
+// devcontainer spec, it returns the expected special
+// value. Otherwise, performs a lookup for an actual env var with the
+// given name, and returns its value if it exists. If either lookups
+// fail, returns an empty string.
+func (p *Parser) expandEnv(v string) string {
+	switch {
+	case v == "containerWorkspaceFolder":
+		return DefWorkspacePath
+	case v == "containerWorkspaceFolderBasename":
+		return filepath.Base(DefWorkspacePath)
+	case v == "localWorkspaceFolder":
+		return *p.Config.Context
+	case v == "localWorkspaceFolderBasename":
+		return filepath.Base(*p.Config.Context)
+	case strings.HasPrefix(v, "containerEnv__"):
+		envKey := strings.SplitN(v, "__", 2)
+		slog.Error("container env var looks are not yet implemented", "var", envKey[1])
+		return ""
+	default:
+		return os.Getenv(v)
+	}
 }
 
 // Convert the contents of the target devcontainer.json, which could
