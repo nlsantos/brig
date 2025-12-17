@@ -16,9 +16,13 @@ specs](https://github.com/devcontainers/spec); it's a long ways from it, but the
 - [Incompatibilities](#incompatibilities)
 
 ## Quick start
-- Download the latest [release](https://github.com/nlsantos/brig/releases) for your platform.
+- Download the latest [release](https://github.com/nlsantos/brig/releases) for your platform then extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
 
-- Extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
+- Alternatively, install `brig` using `go`:
+
+```bash
+go install github.com/nlsantos/brig/cmd/brig@latest
+```
 
 - Using your preferred terminal, `cd` into a directory with a `devcontainer.json`.
 
