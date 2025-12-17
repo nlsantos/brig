@@ -131,6 +131,10 @@ func (p *Parser) Parse() error {
 		return err
 	}
 
+	if p.Config.RunArgs != nil {
+		slog.Warn("devcontainer.json specifies runArgs that won't ever be used", "runArgs", p.Config.RunArgs)
+	}
+
 	slog.Debug("performing value normalization")
 	if p.Config.Context == nil {
 		cwd, err := os.Getwd()
