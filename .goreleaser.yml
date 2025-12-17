@@ -17,6 +17,7 @@ builds:
         - darwin
       goarch:
         - amd64
+        - arm64
 
     - main: ./cmd
       id: "brig-win"
@@ -29,6 +30,7 @@ builds:
         - windows
       goarch:
         - amd64
+        - arm64
       hooks:
         post:
             - upx -9 "{{ .Path }}"
@@ -45,6 +47,7 @@ archives:
     files:
       - LICENSE
       - README.md
+      - brigrc
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}--checksums.txt"
