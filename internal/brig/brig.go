@@ -37,6 +37,7 @@ type ExitCode int
 // Exiting brig returns one of these values to the shell
 const (
 	ExitNormal ExitCode = iota
+	ExitErrorParsingFlags
 	ExitNoDevcJSONFound
 	ExitTooManyDevJSONFound
 )
@@ -55,7 +56,6 @@ var StandardDevcontainerJSONPatterns = []string{
 
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) {
-	var defConfigPath = fmt.Sprintf("${HOME}/.config/%src", appName)
 	var opts = struct {
 		Help    options.Help  `getopt:"-h --help display help"`
 		Verbose bool          `getopt:"-v --verbose enable diagnostic messages"`
@@ -66,9 +66,18 @@ func NewCommand(appName string, appVersion string) {
 	}{}
 
 	options.Register(&opts)
-	if err := opts.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	var defConfigPaths = []string{
+		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
+	}
+	for _, defConfigPath := range defConfigPaths {
+		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
+			continue
+		}
+		if err := opts.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(int(ExitErrorParsingFlags))
+		}
 	}
 	args := options.Parse()
 
