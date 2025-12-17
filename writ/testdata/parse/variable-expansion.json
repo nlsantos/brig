@@ -1,0 +1,68 @@
+{
+  "name": "devcontainer.json with variables",
+  "context": "..",
+  "dockerFile": "./Containerfile",
+  "containerEnv": {
+    // Special devcontainer spec variables
+    "CONTAINER_WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
+    "CONTAINER_WORKSPACE_FOLDER_BASENAME": "${containerWorkspaceFolderBasename}",
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
+    "LOCAL_WORKSPACE_FOLDER_BASENAME": "${localWorkspaceFolderBasename}",
+
+    // Regular env vars; BRIG_TEST_VAR will need to be set up by the
+    // testing framework.
+    "BRIG_TEST_VAR_INDIRECT": "${BRIG_TEST_VAR}",
+    "BRIG_TEST_VAR_NONEXISTING": "${BRIG_TEST_VAR_NONEXISTING}",
+
+    // Assigning a default value if the env var doesn't exist or is empty
+    "BRIG_TEST_VAR_WITH_DEFAULT_STATIC": "${BRIG_TEST_VAR_NONEXISTING:-static}",
+    
+    // Assigning another variable's value as the default value if the
+    // env var doesn't exist or is empty
+    "BRIG_TEST_VAR_WITH_DEFAULT_INDIRECT": "${BRIG_TEST_VAR_NONEXISTING:-$BRIG_TEST_VAR}",
+
+    // --- NOTE THAT NOTHING BEYOND THIS LINE IS NOT IN THE DEVCONTAINER SPEC ---
+
+    // The next two cases should substitute the right hand word *ONLY
+    // IF* the left hand word is valid and non-empty
+    "BRIG_TEST_VAR_SUB_EMPTY": "${BRIG_TEST_VAR_NONEXISTING:+error}",
+    "BRIG_TEST_VAR_SUB_NOT_EMPTY": "${BRIG_TEST_VAR:+not empty}",
+
+    // Offsets
+    "BRIG_TEST_VAR_OFFSET_TWO": "${BRIG_TEST_VAR:2}", // i.e., from index 2 to the end of the string
+    "BRIG_TEST_VAR_OFFSET_TWO_TO_FOUR": "${BRIG_TEST_VAR:2:2}", // from index 2, until start_index + 2
+    "BRIG_TEST_VAR_OFFSET_NEG_FOUR": "${BRIG_TEST_VAR: -4}", // that whitespace after : is important
+    "BRIG_TEST_VAR_OFFSET_NEG_FOUR_TO_TWO": "${BRIG_TEST_VAR: -4:2}", // from index -4, until start_index + 2
+
+    // Var length
+    "BRIG_TEST_VAR_LENGTH": "${#BRIG_TEST_VAR}",
+
+    // Pattern substitution
+    "BRIG_TEST_VAR_SUB_FIRST_L_TO_K": "${BRIG_TEST_VAR/l/k}",
+    "BRIG_TEST_VAR_SUB_ALL_L_TO_K": "${BRIG_TEST_VAR//l/k}",
+
+    // Case conversion
+    "BRIG_TEST_VAR_CASE_ALL_UPPER": "${BRIG_TEST_VAR^^[a-z]}",
+
+    // Var expansion assignment; this *DOES NOT* work, and wouldn't
+    // make much sense in this context.
+    "BRIG_TEST_VAR_ASSIGNMENT": "${BRIG_TEST_VAR_ASSIGNMENT_TARGET:=foo}",
+    "BRIG_TEST_VAR_ASSIGNMENT_CHECK": "${BRIG_TEST_VAR_ASSIGNMENT_TARGET}",
+
+    // This would normally throw an error if the left hand word
+    // doesn't exist or is empty
+    "BRIG_TEST_VAR_ERROR_ON_EMPTY": "${BRIG_TEST_VAR_NONEXISTING:?not exists}",
+  },
+
+  // Mounts containing variables
+  "mounts" : [{
+    "source":  "${BRIG_TEST_MOUNT_SOURCE}",
+    "target": "${BRIG_TEST_MOUNT_TARGET}",
+    "type": "bind"
+  },{
+    // This should be functionally equivalent to the previous entry
+    "source":  "${BRIG_TEST_MOUNT_SOURCE}${BRIG_TEST_MOUNT_SOURCE_NONEXISTING}",
+    "target": "${BRIG_TEST_MOUNT_TARGET}${BRIG_TEST_MOUNT_TARGET_NONEXISTING}",
+    "type": "bind"
+  }]
+}

@@ -1,8 +1,10 @@
 package writ
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -46,16 +48,86 @@ func TestParseSimple(t *testing.T) {
 		t.Fatal("devcontainer.json expected to be valid failed parsing")
 	}
 
-	containerEnv := make(map[string]string)
-	// TODO: Implement interpolation for variables
-	containerEnv["APP_PATH"] = "${containerWorkspaceFolder}"
-	containerEnv["SHELL"] = "/bin/bash"
+	containerEnv := map[string]string{
+		"APP_PATH": DefWorkspacePath,
+		"SHELL":    "/bin/bash",
+	}
 
 	// Check fields against known values
 	assert.Equal(t, *p.Config.Name, "simple-ish devcontainer.json", "fields not matching")
 	assert.Equal(t, *p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), ".."), "fields not matching")
 	assert.Equal(t, *p.Config.DockerFile, "parse/Containerfile", "fields not matching")
 	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
+}
+
+// TestParseVarExpansion exercises writ's variable expansion.
+func TestParseVarExpansion(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	// Set up the local env var table
+	localEnvVars := map[string]string{
+		"BRIG_TEST_VAR":          "Hello",
+		"BRIG_TEST_MOUNT_SOURCE": "/brig/mount/source",
+		"BRIG_TEST_MOUNT_TARGET": "/brig/mount/target",
+	}
+	for key, val := range localEnvVars {
+		if err := os.Setenv(key, val); err != nil {
+			t.Errorf("error setting up env var: %v", err)
+		}
+	}
+
+	p := NewParser(filepath.Join("testdata", "parse", "variable-expansion.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation")
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	containerEnv := map[string]string{
+		// devcontainer spec vars
+		"CONTAINER_WORKSPACE_FOLDER":          DefWorkspacePath,
+		"CONTAINER_WORKSPACE_FOLDER_BASENAME": filepath.Base(DefWorkspacePath),
+		"LOCAL_WORKSPACE_FOLDER":              *p.Config.Context,
+		"LOCAL_WORKSPACE_FOLDER_BASENAME":     filepath.Base(*p.Config.Context),
+		// Regular env vars
+		"BRIG_TEST_VAR_INDIRECT":    localEnvVars["BRIG_TEST_VAR"],
+		"BRIG_TEST_VAR_NONEXISTING": "",
+		// Default value setting
+		"BRIG_TEST_VAR_WITH_DEFAULT_STATIC":   "static",
+		"BRIG_TEST_VAR_WITH_DEFAULT_INDIRECT": localEnvVars["BRIG_TEST_VAR"],
+		"BRIG_TEST_VAR_SUB_EMPTY":             "",
+		"BRIG_TEST_VAR_SUB_NOT_EMPTY":         "not empty",
+		// Case conversion; lowercase conversion doesn't seem to be
+		// supported at this time
+		"BRIG_TEST_VAR_CASE_ALL_UPPER": "HELLO",
+		// Variable length
+		"BRIG_TEST_VAR_LENGTH": fmt.Sprintf("%d", len(localEnvVars["BRIG_TEST_VAR"])),
+		// Variable offsets
+		"BRIG_TEST_VAR_OFFSET_TWO":             localEnvVars["BRIG_TEST_VAR"][2:],
+		"BRIG_TEST_VAR_OFFSET_TWO_TO_FOUR":     localEnvVars["BRIG_TEST_VAR"][2:4],
+		"BRIG_TEST_VAR_OFFSET_NEG_FOUR":        localEnvVars["BRIG_TEST_VAR"][len(localEnvVars["BRIG_TEST_VAR"])-4:],
+		"BRIG_TEST_VAR_OFFSET_NEG_FOUR_TO_TWO": localEnvVars["BRIG_TEST_VAR"][len(localEnvVars["BRIG_TEST_VAR"])-4 : 3],
+		// Pattern substitution
+		"BRIG_TEST_VAR_SUB_FIRST_L_TO_K": "Heklo",
+		"BRIG_TEST_VAR_SUB_ALL_L_TO_K":   "Hekko",
+		// Corresponding shell functionality not supported by shell.Expand()
+		"BRIG_TEST_VAR_ASSIGNMENT":       "",
+		"BRIG_TEST_VAR_ASSIGNMENT_CHECK": "",
+		"BRIG_TEST_VAR_ERROR_ON_EMPTY":   "",
+	}
+
+	// Check fields against known values
+	assert.Equal(t, *p.Config.Name, "devcontainer.json with variables", "fields not matching")
+	assert.Equal(t, *p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), ".."), "fields not matching")
+	assert.Equal(t, *p.Config.DockerFile, "parse/Containerfile", "fields not matching")
+	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
+
+	for _, mount := range p.Config.Mounts {
+		assert.Equal(t, mount.Mount.Source, localEnvVars["BRIG_TEST_MOUNT_SOURCE"])
+		assert.Equal(t, mount.Mount.Target, localEnvVars["BRIG_TEST_MOUNT_TARGET"])
+	}
 }
 
 // TestValidate attempts validation of known valid and invalid samples
