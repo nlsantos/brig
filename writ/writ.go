@@ -42,7 +42,22 @@ var devcontainerJSONSchema string
 // devcontainerJSONSchemaPath is the path used for the JSON schema
 // when being added manually as resource for the validator; it allows
 // the schema contents to be referenced by other resources later on.
-const devcontainerJSONSchemaPath = "devContainer.base.schema.json"
+const devcontainerJSONSchemaPath string = "devContainer.base.schema.json"
+
+// DefWorkspacePath is the default path to which the context directory
+// will be mounted inside the container.
+//
+// This deviates a little bit from the exhibited behavior of Visual
+// Studio Code; under VSCode, this value changes depdending on factors
+// I'm not entirely clear on.
+//
+// It seems to change depending on whether your code utilizes VSCode's
+// [workspaces](https://code.visualstudio.com/docs/editing/workspaces/workspaces)
+// feature and possibly other things.
+//
+// As this is not an applicable concept to brig, I've chosen to pin it
+// to a known value instead.
+const DefWorkspacePath string = "/workspace"
 
 // A Parser contains metadata about a target devcontainer.jkson file,
 // as well as the configuration for the intended devcontainer itself.
@@ -195,11 +210,9 @@ func (p *Parser) Parse() error {
 		p.Config.UpdateRemoteUserUID = &defUpdateRemoteUserUID
 	}
 
-	// TODO: Investigate if "/workspace" actual is the default value
-	// that's supposed to be used here.
 	if p.Config.WorkspaceFolder == nil {
-		defaultWorkspaceFolder := "/workspace"
-		p.Config.WorkspaceFolder = &defaultWorkspaceFolder
+		var defWorkspacePath = DefWorkspacePath
+		p.Config.WorkspaceFolder = &defWorkspacePath
 		slog.Debug("no value given; using current default value", "root/workspaceFolder", *p.Config.WorkspaceFolder)
 	}
 
