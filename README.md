@@ -7,6 +7,41 @@ specs](https://github.com/devcontainers/spec); it's a long ways from it, but the
 
 `brig` also treats [podman](https://podman.io/) as a first-class citizen, since I prefer it over Docker.
 
+## Table of contents
+- [Quick start](#quick-start)
+- [Why](#why)
+- [What does "podman as a first-class citizen" mean?](#what-does-podman-as-a-first-class-citizen-mean)
+- [Why not...?](#why-not)
+- [What works](#what-works)
+- [Incompatibilities](#incompatibilities)
+
+## Quick start
+- Download the latest [release](https://github.com/nlsantos/brig/releases) for your platform.
+
+- Extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
+
+- Using your preferred terminal, `cd` into a directory with a `devcontainer.json`.
+
+- Run `brig`, wait for the build process to complete, and you should be plopped into a shell inside your devcontainer.
+
+### Options
+
+`brig` supports a handful of parameters that influence the way it works. To view the list, run:
+
+```bash
+brig --help
+```
+
+### Flags file
+
+Refer to [`brigrc`](brigrc) for a sample configuration file. `brig` will find it automatically if you place it in either `"${HOME}/.config/brigrc"` (e.g., on *nix) or `"${USERPROFILE}/.brigrc"` (e.g., on Windows).
+
+### Docker users
+
+To get `brig` working with Docker, you need to specify the socket address (or named pipe on Windows) Docker listens on by passing it to the `--socket` command line argument or the `"socket ="` entry in the flags file.
+
+(To save you a search, on Windows plus Docker, the value is likely to be `npipe:////./pipe/docker_engine`)
+
 ## Why
 
 [devcontainers](https://containers.dev) are pretty nifty. It's also **very** nifty that, _technically_, they're not tied to Visual Studio Code. This suits me, as I consider myself an Emacs user.
