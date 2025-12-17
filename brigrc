@@ -1,0 +1,16 @@
+# Flags/config file for brig (https://github.com/nlsantos/brig) # -*- sh -*-
+# ---
+# Store as "${HOME}/.config/brigrc" (on *nix) or "%USERPROFILE%/.brigrc" (on Windows)
+
+## If true, enable ouputting Info level messages
+#verbose = true               # can also be v=true
+
+## If true, enable outputting Debug level messages (implies
+## verbose=true); WARNING: this can get pretty messy
+#debug = true                 # can also be d=true  
+
+## Specify socket address (named pipe on Windows) on which Podman or
+## Docker is listening.
+##
+## The example below is what I use on Windows + Docker
+#socket = "npipe:////./pipe/docker_engine"
