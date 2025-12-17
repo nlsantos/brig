@@ -15,25 +15,20 @@ builds:
       goos:
         - linux
         - darwin
-      goarch:
-        - amd64
-        - arm64
-
-    - main: ./cmd
-      id: "brig-win"
-      binary: brig
-      ldflags:
-        - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
-      env:
-        - CGO_ENABLED=0
-      goos:
         - windows
       goarch:
         - amd64
         - arm64
-      hooks:
-        post:
-            - upx -9 "{{ .Path }}"
+
+upx:
+  - enabled: true
+    goos: [linux, darwin]
+    compress: best
+
+  - enabled: true
+    goos: [windows]
+    goarch: [amd64]
+    compress: best
 
 archives:
   - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
