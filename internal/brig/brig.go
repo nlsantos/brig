@@ -29,6 +29,7 @@ import (
 	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"github.com/pborman/options"
+	"mvdan.cc/sh/v3/shell"
 )
 
 // ExitCode is a list of numeric exit codes used by brig
@@ -37,6 +38,7 @@ type ExitCode int
 // Exiting brig returns one of these values to the shell
 const (
 	ExitNormal ExitCode = iota
+	ExitNoSocketFound
 	ExitErrorParsingFlags
 	ExitNoDevcJSONFound
 	ExitTooManyDevJSONFound
@@ -142,7 +144,14 @@ func NewCommand(appName string, appVersion string) {
 		panic(err)
 	}
 
-	trillClient := trill.NewClient(getSocketAddr(opts.Socket))
+	socketAdddr := getSocketAddr(opts.Socket)
+	if len(socketAdddr) == 0 {
+		slog.Error("No socket address / path specified and none can be found")
+		fmt.Println("fatal: Could not determine Podman/Docker socket address. Exiting.\n")
+		os.Exit(int(ExitNoSocketFound))
+	}
+
+	trillClient := trill.NewClient(socketAdddr)
 	imageName := createImageTagBase(&parser)
 	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
 	slog.Debug("building container image", "tag", imageTag)
@@ -260,16 +269,39 @@ func findDevcontainerJSON(paths []string) []string {
 // usually work for a system with Podman installed.
 func getSocketAddr(socketAddr string) string {
 	if len(socketAddr) > 0 {
+		slog.Debug("received a non-empty socket address", "socket", socketAddr)
 		return socketAddr
 	}
 
+	// Having Docker installed usually causes this to be set; the
+	// podman-docker package (in its various guises across distros)
+	// will also likely set this
 	if envSocketAddr, ok := os.LookupEnv("DOCKER_HOST"); ok {
 		slog.Debug("using socket nominated by DOCKER_HOST", "socket", envSocketAddr)
 		return envSocketAddr
 	}
 
 	uid := os.Getuid()
-	compSocketAddr := fmt.Sprintf("unix:///run/user/%d/podman/podman.sock", uid)
-	slog.Debug("falling back to computed socket address", "socket", compSocketAddr)
-	return compSocketAddr
+	possibleSocketPaths := []string{
+		"${XDG_RUNTIME_DIR}/docker.sock", // I'm pretty sure only podman-docker would cause this file to exist for a user
+		"${XDG_RUNTIME_DIR}/podman/podman.sock",
+		fmt.Sprintf("/run/user/%d/docker.sock", uid),
+		fmt.Sprintf("/run/user/%d/podman/podman.sock", uid), // This also covers Podman + macOS, apparently?
+		"/var/run/docker.sock",                              // Docker + GNU/Linux
+		"/private/var/run/docker.sock",                      // Docker + macOS
+	}
+
+	for _, possibleSocketPath := range possibleSocketPaths {
+		if socketPath, err := shell.Expand(possibleSocketPath, nil); err == nil {
+			if _, err := os.Stat(socketPath); err == nil {
+				slog.Debug("using possible socket found in filesystem", "socket", socketPath)
+				// The protocol isn't strictly necessary; it seems the
+				// Moby package automatically adds it as needed. Still...
+				return fmt.Sprintf("unix://%s", socketPath)
+			}
+		}
+	}
+
+	slog.Error("unable to find a suitable socket address/path to target")
+	return ""
 }
