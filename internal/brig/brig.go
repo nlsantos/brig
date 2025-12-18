@@ -31,7 +31,7 @@ import (
 	"github.com/pborman/options"
 )
 
-// EXitCode is a list of numeric exit codes used by brig
+// ExitCode is a list of numeric exit codes used by brig
 type ExitCode int
 
 // Exiting brig returns one of these values to the shell
@@ -142,7 +142,7 @@ func NewCommand(appName string, appVersion string) {
 		panic(err)
 	}
 
-	trillClient := trill.NewClient(opts.Socket)
+	trillClient := trill.NewClient(getSocketAddr(opts.Socket))
 	imageName := createImageTagBase(&parser)
 	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
 	slog.Debug("building container image", "tag", imageTag)
@@ -249,4 +249,27 @@ func findDevcontainerJSON(paths []string) []string {
 	}
 
 	return findDevcontainerJSON(StandardDevcontainerJSONPatterns)
+}
+
+// Attempt to determine a viable socket address for communicating with
+// Podman/Docker.
+//
+// If socketAddr is non-empty, this function just returns it
+// immediately. Otherwise, it attempts to look for the DOCKER_HOST
+// environment variable; failing that, it builds a path that will
+// usually work for a system with Podman installed.
+func getSocketAddr(socketAddr string) string {
+	if len(socketAddr) > 0 {
+		return socketAddr
+	}
+
+	if envSocketAddr, ok := os.LookupEnv("DOCKER_HOST"); ok {
+		slog.Debug("using socket nominated by DOCKER_HOST", "socket", envSocketAddr)
+		return envSocketAddr
+	}
+
+	uid := os.Getuid()
+	compSocketAddr := fmt.Sprintf("unix:///run/user/%d/podman/podman.sock", uid)
+	slog.Debug("falling back to computed socket address", "socket", compSocketAddr)
+	return compSocketAddr
 }
