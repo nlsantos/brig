@@ -18,10 +18,6 @@
 package trill
 
 import (
-	"fmt"
-	"log/slog"
-	"os"
-
 	mobyclient "github.com/moby/moby/client"
 )
 
@@ -38,7 +34,7 @@ type Client struct {
 // If it encounters an error creating the underlying connection, it
 // panics.
 func NewClient(socketAddr string) *Client {
-	c := &Client{SocketAddr: getSocketAddr(socketAddr)}
+	c := &Client{SocketAddr: socketAddr}
 
 	if mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr)); err == nil {
 		c.MobyClient = mobyClient
@@ -48,27 +44,4 @@ func NewClient(socketAddr string) *Client {
 	}
 
 	return c
-}
-
-// Attempt to determine a viable socket address for communicating with
-// Podman/Docker.
-//
-// If socketAddr is non-empty, this function just returns it
-// immediately. Otherwise, it attempts to look for the DOCKER_HOST
-// environment variable; failing that, it builds a path that will
-// usually work for a system with Podman installed.
-func getSocketAddr(socketAddr string) string {
-	if len(socketAddr) > 0 {
-		return socketAddr
-	}
-
-	if envSocketAddr, ok := os.LookupEnv("DOCKER_HOST"); ok {
-		slog.Debug("using socket nominated by DOCKER_HOST", "socket", envSocketAddr)
-		return envSocketAddr
-	}
-
-	uid := os.Getuid()
-	compSocketAddr := fmt.Sprintf("unix:///run/user/%d/podman/podman.sock", uid)
-	slog.Debug("falling back to computed socket address", "socket", compSocketAddr)
-	return compSocketAddr
 }
