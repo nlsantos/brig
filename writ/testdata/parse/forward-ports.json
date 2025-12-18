@@ -1,0 +1,8 @@
+{
+  "name": "simple-ish devcontainer.json with forwardPorts",
+  "image": "chainguard/go:latest",
+  "forwardPorts": [8000, "db:5432"],
+  "otherPortsAttributes": {
+    "elevateIfNeeded": true
+  }
+}

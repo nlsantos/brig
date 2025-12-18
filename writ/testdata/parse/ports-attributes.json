@@ -1,0 +1,13 @@
+{
+  "name": "simple-ish devcontainer.json with portsAttributes",
+  "image": "chainguard/go:latest",
+  "forwardPorts": [8000, "db:5432"],
+  "portsAttributes": {
+    "8000": {
+      "label": "web port"
+    },
+    "db:5432": {
+      "elevateIfNeeded": true
+    }
+  }
+}
