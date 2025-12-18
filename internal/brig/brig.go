@@ -146,7 +146,7 @@ func NewCommand(appName string, appVersion string) {
 	socketAdddr := getSocketAddr(opts.Socket)
 	if len(socketAdddr) == 0 {
 		slog.Error("No socket address / path specified and none can be found")
-		fmt.Println("fatal: Could not determine Podman/Docker socket address. Exiting.\n")
+		fmt.Println("fatal: Could not determine Podman/Docker socket address. Exiting.")
 		os.Exit(int(ExitNoSocketFound))
 	}
 
