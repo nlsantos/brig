@@ -84,12 +84,12 @@ type DevcontainerConfig struct {
 	// will be run in a shell. If this is an array of strings, it will be run as a single
 	// command without shell. If this is an object, each provided command will be run in
 	// parallel.
-	OnCreateCommand      *Command              `json:"onCreateCommand,omitempty"`
-	OtherPortsAttributes *OtherPortsAttributes `json:"otherPortsAttributes,omitempty"`
+	OnCreateCommand      *Command        `json:"onCreateCommand,omitempty"`
+	OtherPortsAttributes *PortAttributes `json:"otherPortsAttributes,omitempty"`
 	// Array consisting of the Feature id (without the semantic version) of Features in the
 	// order the user wants them to be installed.
-	OverrideFeatureInstallOrder []string         `json:"overrideFeatureInstallOrder,omitempty"`
-	PortsAttributes             *PortsAttributes `json:"portsAttributes,omitempty"`
+	OverrideFeatureInstallOrder []string                  `json:"overrideFeatureInstallOrder,omitempty"`
+	PortsAttributes             map[string]PortAttributes `json:"portsAttributes,omitempty"`
 	// A command to run when attaching to the container. This command is run after
 	// "postStartCommand". If this is a single string, it will be run in a shell. If this is an
 	// array of strings, it will be run as a single command without shell. If this is an object,
@@ -190,7 +190,7 @@ type Mount struct {
 	Type Type `json:"type"`
 }
 
-type OtherPortsAttributes struct {
+type PortAttributes struct {
 	// Automatically prompt for elevation (if needed) when this port is forwarded. Elevate is
 	// required if the local port is a privileged port.
 	ElevateIfNeeded *bool `json:"elevateIfNeeded,omitempty"`
@@ -201,9 +201,6 @@ type OtherPortsAttributes struct {
 	// The protocol to use when forwarding this port.
 	Protocol         *Protocol `json:"protocol,omitempty"`
 	RequireLocalPort *bool     `json:"requireLocalPort,omitempty"`
-}
-
-type PortsAttributes struct {
 }
 
 // Recommended secrets for this dev container. Recommendations are provided as environment
