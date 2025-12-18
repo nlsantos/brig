@@ -161,7 +161,7 @@ func (p *Parser) Parse() error {
 		slog.Debug("no value given; using current working directory", "root/context", cwd)
 		// Use the current working directory as context for builds if
 		// none is given
-		*p.Config.Context = cwd
+		p.Config.Context = &cwd
 	} else {
 		// The value of context is relative to the devcontainer.json
 		contextPath := filepath.Join(filepath.Dir(p.Filepath), *p.Config.Context)
