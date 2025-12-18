@@ -116,8 +116,8 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		OpenStdin: true,
 		Tty:       true,
 	}
-	if p.Config.RemoteUser != nil {
-		containerCfg.User = *p.Config.RemoteUser
+	if p.Config.ContainerUser != nil {
+		containerCfg.User = *p.Config.ContainerUser
 	}
 	slog.Debug("using container config", "config", containerCfg)
 	hostCfg := container.HostConfig{
