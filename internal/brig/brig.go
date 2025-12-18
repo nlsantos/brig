@@ -119,11 +119,11 @@ func NewCommand(appName string, appVersion string) {
 	case len(targets) > 1:
 		slog.Debug("found multiple devcontainer.json candidates; giving up")
 		fmt.Println(heredoc.Doc(`
-				Found multiple devcontainer specifications.
-				Specify one explicitly as a value to the -f/--file command line flag to continue.
+			Found multiple devcontainer specifications.
+			Specify one explicitly as a value to the -f/--file command line flag to continue.
 
-				The following paths are eligible targets:
-			`))
+			The following paths are eligible targets:
+		`))
 		for _, target := range targets {
 			fmt.Printf("\t%s\n", target)
 		}
