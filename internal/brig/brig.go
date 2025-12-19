@@ -58,12 +58,13 @@ var StandardDevcontainerJSONPatterns = []string{
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) {
 	var opts = struct {
-		Help    options.Help  `getopt:"-h --help display help"`
-		Verbose bool          `getopt:"-v --verbose enable diagnostic messages"`
-		Config  options.Flags `getopt:"-c --config=PATH path to rc file"`
-		Debug   bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
-		Socket  string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
-		Version bool          `getopt:"-V --version display version informaiton then exit"`
+		Help       options.Help  `getopt:"-h --help display help"`
+		Verbose    bool          `getopt:"-v --verbose enable diagnostic messages"`
+		Config     options.Flags `getopt:"-c --config=PATH path to rc file"`
+		Debug      bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		MakeMeRoot bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
+		Socket     string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
+		Version    bool          `getopt:"-V --version display version informaiton then exit"`
 	}{}
 
 	options.Register(&opts)
@@ -94,6 +95,10 @@ func NewCommand(appName string, appVersion string) {
                     There is NO WARRANTY, to the extent permitted by law.
                 `), appName, appVersion)
 		os.Exit(int(ExitNormal))
+	}
+
+	if opts.MakeMeRoot {
+		slog.Info("mapping your UID and GID to 0:0 inside the container")
 	}
 
 	logLevel := new(slog.LevelVar)
@@ -150,7 +155,7 @@ func NewCommand(appName string, appVersion string) {
 		os.Exit(int(ExitNoSocketFound))
 	}
 
-	trillClient := trill.NewClient(socketAdddr)
+	trillClient := trill.NewClient(socketAdddr, opts.MakeMeRoot)
 	imageName := createImageTagBase(&parser)
 	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
 	slog.Debug("building container image", "tag", imageTag)
