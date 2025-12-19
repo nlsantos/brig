@@ -128,6 +128,11 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		},
 		Privileged: *p.Config.Privileged,
 	}
+
+	if c.MakeMeRoot {
+		hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
+	}
+
 	if p.Config.CapAdd != nil {
 		hostCfg.CapAdd = p.Config.CapAdd
 	}

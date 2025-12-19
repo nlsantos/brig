@@ -24,6 +24,7 @@ import (
 // A Client holds metadata for communicating with Podman/Docker.
 type Client struct {
 	ContainerID string
+	MakeMeRoot  bool
 	MobyClient  *mobyclient.Client
 	SocketAddr  string
 }
@@ -33,8 +34,11 @@ type Client struct {
 //
 // If it encounters an error creating the underlying connection, it
 // panics.
-func NewClient(socketAddr string) *Client {
-	c := &Client{SocketAddr: socketAddr}
+func NewClient(socketAddr string, makeMeRoot bool) *Client {
+	c := &Client{
+		MakeMeRoot: makeMeRoot,
+		SocketAddr: socketAddr,
+	}
 
 	if mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr)); err == nil {
 		c.MobyClient = mobyClient
