@@ -60,6 +60,67 @@ func TestParseSimple(t *testing.T) {
 	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
 }
 
+// TestParseForwardPorts parses a devcontainer.json that declares
+// forwardPorts and validates that defaults port attributes are
+// generated and applied
+func TestParseForwardPorts(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "forward-ports.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	assert.NotNil(t, p.Config.ForwardPorts)
+	assert.NotEmpty(t, p.Config.ForwardPorts)
+	assert.NotNil(t, p.Config.PortsAttributes)
+
+	for _, portAttribute := range p.Config.PortsAttributes {
+		// This is defined in the devcontainer.json as a default value for ports
+		assert.Equal(t, *portAttribute.ElevateIfNeeded, true)
+	}
+}
+
+// TestParsePortsAttributes parses a devcontainer.json that declares
+// forwardPorts *AND* portsAttributes and validates that explicit port
+// attributes are able to override default values
+func TestParsePortsAttributes(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "ports-attributes.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	assert.NotNil(t, p.Config.ForwardPorts)
+	assert.NotEmpty(t, p.Config.ForwardPorts)
+	assert.NotNil(t, p.Config.PortsAttributes)
+
+	port8k, ok := p.Config.PortsAttributes["8000"]
+	assert.Equal(t, ok, true)
+	assert.EqualValues(t, *port8k.Label, "web port")
+	assert.EqualValues(t, *port8k.Protocol, "tcp")
+	assert.EqualValues(t, *port8k.OnAutoForward, "notify")
+	assert.EqualValues(t, *port8k.RequireLocalPort, false)
+	assert.EqualValues(t, *port8k.ElevateIfNeeded, false)
+
+	portDb, ok := p.Config.PortsAttributes["db:5432"]
+	assert.Equal(t, ok, true)
+	assert.Empty(t, portDb.Label)
+	assert.EqualValues(t, *portDb.Protocol, "tcp")
+	assert.EqualValues(t, *portDb.OnAutoForward, "notify")
+	assert.EqualValues(t, *portDb.RequireLocalPort, false)
+	assert.EqualValues(t, *portDb.ElevateIfNeeded, true)
+}
+
 // TestParseVarExpansion exercises writ's variable expansion.
 func TestParseVarExpansion(t *testing.T) {
 	// Silence slog output for the duration of the run
