@@ -16,7 +16,7 @@ specs](https://github.com/devcontainers/spec); it's a long ways from it, but the
 - [Incompatibilities](#incompatibilities)
 
 ## Quick start
-- Download the latest [release](https://github.com/nlsantos/brig/releases) for your platform then extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
+- Download the latest [release](releases) for your platform then extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
 
 - Alternatively, install `brig` using `go`:
 
@@ -50,7 +50,7 @@ To get `brig` working with Docker, you need to specify the socket address (or na
 
 [devcontainers](https://containers.dev) are pretty nifty. It's also **very** nifty that, _technically_, they're not tied to Visual Studio Code. This suits me, as I consider myself an Emacs user.
 
-For the most part, one can make do with relatively simple shell scripts to build a container based on the `Containerfile`/`Dockerfile` that usually accompanies a devcontainer recipe. (This what I did for several years before writing brig; see [`start-dev-container.sh`](https://github.com/nlsantos/brig/blob/38d4ae10557422c37af349c9df3b460c343d487c/start-dev-container.sh))
+For the most part, one can make do with relatively simple shell scripts to build a container based on the `Containerfile`/`Dockerfile` that usually accompanies a devcontainer recipe. (This what I did for several years before writing brig; see [`start-dev-container.sh`](blob/38d4ae10557422c37af349c9df3b460c343d487c/start-dev-container.sh))
 
 However, as I've been diving into the spec, I've been finding more and more little things that I've been wanting to implement in the devcontainer recipes my team is using (e.g., lifecycle commands).
 
@@ -79,7 +79,7 @@ Basically, the fact that `brig` works with Docker is a _side-effect_ of Podman's
 
 ## What works
 
-Keep in mind that `brig` is still very much alpha software at this point. While as of [38d4ae1](https://github.com/nlsantos/brig/commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
+Keep in mind that `brig` is still very much alpha software at this point. While as of [38d4ae1](commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
 
 That said, here's a list of what `brig` can do:
 
