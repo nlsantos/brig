@@ -54,10 +54,10 @@ func TestParseSimple(t *testing.T) {
 	}
 
 	// Check fields against known values
-	assert.Equal(t, *p.Config.Name, "simple-ish devcontainer.json", "fields not matching")
-	assert.Equal(t, *p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), ".."), "fields not matching")
-	assert.Equal(t, *p.Config.DockerFile, "parse/Containerfile", "fields not matching")
-	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
+	assert.Equal(t, "simple-ish devcontainer.json", *p.Config.Name, "fields not matching")
+	assert.Equal(t, filepath.Join(filepath.Dir(p.Filepath), ".."), *p.Config.Context, "fields not matching")
+	assert.Equal(t, "parse/Containerfile", *p.Config.DockerFile, "fields not matching")
+	assert.Equal(t, containerEnv, p.Config.ContainerEnv, "fields not matching")
 }
 
 // TestParseForwardPorts parses a devcontainer.json that declares
@@ -81,7 +81,7 @@ func TestParseForwardPorts(t *testing.T) {
 
 	for _, portAttribute := range p.Config.PortsAttributes {
 		// This is defined in the devcontainer.json as a default value for ports
-		assert.Equal(t, *portAttribute.ElevateIfNeeded, true)
+		assert.Equal(t, true, *portAttribute.ElevateIfNeeded)
 	}
 }
 
@@ -105,20 +105,29 @@ func TestParsePortsAttributes(t *testing.T) {
 	assert.NotNil(t, p.Config.PortsAttributes)
 
 	port8k, ok := p.Config.PortsAttributes["8000"]
-	assert.Equal(t, ok, true)
-	assert.EqualValues(t, *port8k.Label, "web port")
-	assert.EqualValues(t, *port8k.Protocol, "tcp")
-	assert.EqualValues(t, *port8k.OnAutoForward, "notify")
-	assert.EqualValues(t, *port8k.RequireLocalPort, false)
-	assert.EqualValues(t, *port8k.ElevateIfNeeded, false)
+	assert.Equal(t, true, ok)
+	assert.EqualValues(t, "web port", *port8k.Label)
+	assert.EqualValues(t, "tcp", *port8k.Protocol)
+	assert.EqualValues(t, "notify", *port8k.OnAutoForward)
+	assert.EqualValues(t, false, *port8k.RequireLocalPort)
+	assert.EqualValues(t, false, *port8k.ElevateIfNeeded)
+
+	port9k, ok := p.Config.PortsAttributes["9000"]
+	assert.Equal(t, true, ok)
+	assert.Empty(t, port9k.Label)
+	assert.EqualValues(t, "tcp", *port9k.Protocol)
+	assert.EqualValues(t, "notify", *port9k.OnAutoForward)
+	assert.EqualValues(t, false, *port9k.RequireLocalPort)
+	assert.EqualValues(t, false, *port9k.ElevateIfNeeded)
 
 	portDb, ok := p.Config.PortsAttributes["db:5432"]
-	assert.Equal(t, ok, true)
+	assert.Equal(t, true, ok)
 	assert.Empty(t, portDb.Label)
-	assert.EqualValues(t, *portDb.Protocol, "tcp")
-	assert.EqualValues(t, *portDb.OnAutoForward, "notify")
-	assert.EqualValues(t, *portDb.RequireLocalPort, false)
-	assert.EqualValues(t, *portDb.ElevateIfNeeded, true)
+	assert.EqualValues(t, "tcp", *portDb.Protocol)
+	assert.EqualValues(t, "notify", *portDb.OnAutoForward)
+	assert.EqualValues(t, false, *portDb.RequireLocalPort)
+	assert.EqualValues(t, true, *portDb.ElevateIfNeeded)
+
 }
 
 // TestParseVarExpansion exercises writ's variable expansion.
