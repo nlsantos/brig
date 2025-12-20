@@ -20,7 +20,7 @@ type DevcontainerConfig struct {
 	// array of ports. Each port can be a number or a string. A number is mapped to the same
 	// port on the host. A string is passed to Docker unchanged and can be used to map ports
 	// differently, e.g. "8000:8010".
-	AppPort *CoordinateAppPort `json:"appPort,omitempty"`
+	AppPort *AppPort `json:"appPort,omitempty"`
 	// Whether to overwrite the command specified in the image. The default is true.
 	//
 	// Whether to overwrite the command specified in the image. The default is false.
@@ -280,7 +280,7 @@ const (
 // array of ports. Each port can be a number or a string. A number is mapped to the same
 // port on the host. A string is passed to Docker unchanged and can be used to map ports
 // differently, e.g. "8000:8010".
-type CoordinateAppPort struct {
+type AppPort struct {
 	Integer    *int64
 	String     *string
 	UnionArray []AppPortElement
