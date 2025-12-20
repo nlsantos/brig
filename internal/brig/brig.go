@@ -97,10 +97,6 @@ func NewCommand(appName string, appVersion string) {
 		os.Exit(int(ExitNormal))
 	}
 
-	if opts.MakeMeRoot {
-		slog.Info("mapping your UID and GID to 0:0 inside the container")
-	}
-
 	logLevel := new(slog.LevelVar)
 	switch {
 	case opts.Debug:
@@ -114,6 +110,10 @@ func NewCommand(appName string, appVersion string) {
 		Level: logLevel,
 	})))
 	slog.Debug("command line parsed", "args", args)
+
+	if opts.MakeMeRoot {
+		slog.Info("mapping your UID and GID to 0:0 inside the container")
+	}
 
 	var targets = findDevcontainerJSON(args)
 	var targetDevcontainerJSON string
