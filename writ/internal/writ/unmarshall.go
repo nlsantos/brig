@@ -42,8 +42,7 @@ func (m *MountElement) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	mountSegments := strings.Split(mountString, ",")
-	for _, segment := range mountSegments {
+	for segment := range strings.SplitSeq(mountString, ",") {
 		splitSegment := strings.SplitN(segment, "=", 2)
 		splitSegment[0] = strings.ToLower(strings.TrimSpace(splitSegment[0]))
 		splitSegment[1] = strings.TrimSpace(splitSegment[1])
