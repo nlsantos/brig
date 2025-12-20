@@ -34,6 +34,63 @@ func TestParse(t *testing.T) {
 	}
 }
 
+// TestParseAppPortInt parses a devcontainer.json with an appPort that
+// consists of a single integer and checks that the unmarshalled
+// values match as expected
+func TestParseAppPortInt(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "appport-single-int.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation")
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	appPort := []string{"8000"}
+	assert.EqualValues(t, &appPort, p.Config.AppPort)
+}
+
+// TestParseAppPortMulti parses a devcontainer.json with an appPort that
+// consists of integers and strings, and checks that the unmarshalled
+// values match as expected
+func TestParseAppPortMulti(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "appport-multi.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation")
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	appPort := []string{"853/udp", "8000", "9000", "5432/tcp"}
+	assert.EqualValues(t, &appPort, p.Config.AppPort)
+}
+
+// TestParseAppPortString parses a devcontainer.json with an appPort that
+// consists of a single string and checks that the unmarshalled
+// values match as expected
+func TestParseAppPortString(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "appport-single-string.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation")
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	appPort := []string{"6000"}
+	assert.EqualValues(t, &appPort, p.Config.AppPort)
+}
+
 // TestParseForwardPorts parses a devcontainer.json that declares
 // forwardPorts and validates that defaults port attributes are
 // generated and applied

@@ -1,0 +1,5 @@
+{
+  "name": "simple-ish devcontainer.json with single string as appPort",
+  "image": "chainguard/go:latest",
+  "appPort": "6000"
+}
