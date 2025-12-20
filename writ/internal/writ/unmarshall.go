@@ -6,6 +6,27 @@ import (
 	"strings"
 )
 
+// Custom unmarshaller for the ForwardPort type
+func (f *ForwardPort) UnmarshalJSON(data []byte) error {
+	if len(data) < 1 {
+		return nil
+	}
+
+	var err error
+	if data[0] == '"' {
+		var hostPort string
+		if err = json.Unmarshal(data, &hostPort); err == nil {
+			f.String = &hostPort
+		}
+	} else {
+		var port int64
+		if err = json.Unmarshal(data, &port); err == nil {
+			f.Integer = &port
+		}
+	}
+	return err
+}
+
 // Custom unmarshaller for the MountElement type
 //
 // Because of this unmarshaller, a MountElement should never have its
@@ -39,24 +60,4 @@ func (m *MountElement) UnmarshalJSON(data []byte) error {
 		}
 	}
 	return nil
-}
-
-func (f *ForwardPort) UnmarshalJSON(data []byte) error {
-	if len(data) < 1 {
-		return nil
-	}
-
-	var err error
-	if data[0] == '"' {
-		var hostPort string
-		if err = json.Unmarshal(data, &hostPort); err == nil {
-			f.String = &hostPort
-		}
-	} else {
-		var port int64
-		if err = json.Unmarshal(data, &port); err == nil {
-			f.Integer = &port
-		}
-	}
-	return err
 }
