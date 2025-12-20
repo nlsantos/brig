@@ -128,6 +128,13 @@ func TestParsePortsAttributes(t *testing.T) {
 	assert.EqualValues(t, false, *portDb.RequireLocalPort)
 	assert.EqualValues(t, true, *portDb.ElevateIfNeeded)
 
+	portSdns, ok := p.Config.PortsAttributes["sdns:853"]
+	assert.Equal(t, true, ok)
+	assert.EqualValues(t, "secure DNS", *portSdns.Label)
+	assert.EqualValues(t, "tcp", *portSdns.Protocol)
+	assert.EqualValues(t, "notify", *portSdns.OnAutoForward)
+	assert.EqualValues(t, false, *portSdns.RequireLocalPort)
+	assert.EqualValues(t, true, *portSdns.ElevateIfNeeded)
 }
 
 // TestParseVarExpansion exercises writ's variable expansion.
