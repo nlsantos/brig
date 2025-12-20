@@ -2,9 +2,44 @@ package writ
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 )
+
+// Custom unmarshaller for the AppPort type
+func (a *AppPort) UnmarshalJSON(data []byte) error {
+	if len(data) < 1 {
+		return nil
+	}
+
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	var elements []string
+	switch v := raw.(type) {
+	case []any:
+		for _, x := range v {
+			switch y := x.(type) {
+			case string:
+				elements = append(elements, y)
+			case float64:
+				elements = append(elements, fmt.Sprintf("%.0f", y))
+			}
+		}
+	case string:
+		elements = append(elements, v)
+	case float64:
+		elements = append(elements, fmt.Sprintf("%.0f", v))
+	default:
+		fmt.Println(v)
+		return fmt.Errorf("unknown type: %s", v)
+	}
+	*a = elements
+	return nil
+}
 
 // Custom unmarshaller for the ForwardPort type
 func (f *ForwardPort) UnmarshalJSON(data []byte) error {

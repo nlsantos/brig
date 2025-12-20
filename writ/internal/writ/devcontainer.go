@@ -280,20 +280,7 @@ const (
 // array of ports. Each port can be a number or a string. A number is mapped to the same
 // port on the host. A string is passed to Docker unchanged and can be used to map ports
 // differently, e.g. "8000:8010".
-type AppPort struct {
-	Integer    *int64
-	String     *string
-	UnionArray []AppPortElement
-}
-
-// Application ports that are exposed by the container. This can be a single port or an
-// array of ports. Each port can be a number or a string. A number is mapped to the same
-// port on the host. A string is passed to Docker unchanged and can be used to map ports
-// differently, e.g. "8000:8010".
-type AppPortElement struct {
-	Integer *int64
-	String  *string
-}
+type AppPort []string
 
 // The image to consider as a cache. Use an array to specify multiple images.
 //
