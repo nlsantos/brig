@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/moby/go-archive"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
@@ -100,6 +101,33 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 		}
 		if msg.Error != "" {
 			fmt.Printf("builder: [ERROR] %s\n", msg.Error)
+		}
+	}
+}
+
+// Pull the OCI image from a remtoe registry to be used by the
+// devcontainer.
+//
+// TODO: Implement a privilege function to support authentication so
+// images can be pulled from private repositories
+func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
+	fmt.Printf("Pulling %s from remote registry...\n", tag)
+	pullOpts := mobyclient.ImagePullOptions{}
+	pullResp, err := c.MobyClient.ImagePull(context.Background(), tag, pullOpts)
+	if err != nil {
+		panic(err)
+	}
+	defer pullResp.Close()
+
+	if suppressOutput {
+		if err := pullResp.Wait(context.Background()); err != nil {
+			panic(err)
+		}
+	} else {
+		stdoutFd := os.Stdout.Fd()
+		if err := jsonmessage.DisplayJSONMessagesStream(pullResp, os.Stdout, stdoutFd, term.IsTerminal(int(stdoutFd)), nil); err != nil {
+			slog.Error("error encountered while pulling image", "tag", tag, "error", err)
+			panic(err)
 		}
 	}
 }
