@@ -1,0 +1,6 @@
+{
+  "name": "invalid port forwards sample",
+  "image": "golang",
+  // forwardPorts does not allow /<proto>
+  "forwardPorts": ["8000/tcp", "9000/udp", "host:5000/tcp", "host:6000/udp"]
+}

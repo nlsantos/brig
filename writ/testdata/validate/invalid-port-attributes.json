@@ -1,0 +1,25 @@
+{
+  "name": "simple-ish devcontainer.json with portsAttributes",
+  "image": "golang",
+  "forwardPorts": [8000, 9000, "db:5432", "sdns:853"],
+  "portsAttributes": {
+    "8000": {
+      "label": "web port"
+    },
+    "9000": {
+      // The spec does not allow TCP as a protocol; however, if this
+      // is left unset, the behavior is to treat it as though it's set
+      // to tcp
+      "protocol": "tcp",
+    },
+    "db:5432": {
+      "elevateIfNeeded": true
+    },
+    "sdns:853/udp": {
+      "label": "secure DNS",
+      // The spec does not allow UDP as a protocol
+      "protocol": "udp",
+      "elevateIfNeeded": true
+    }
+  }
+}
