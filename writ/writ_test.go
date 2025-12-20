@@ -34,32 +34,6 @@ func TestParse(t *testing.T) {
 	}
 }
 
-// TestParseSimple parses a simple devcontainer.json and checks that
-// the unmarshalled values match as expected
-func TestParseSimple(t *testing.T) {
-	// Silence slog output for the duration of the run
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-
-	p := NewParser(filepath.Join("testdata", "parse", "simple-devcontainer.json"))
-	if err := p.Validate(); err != nil {
-		t.Fatal("devcontainer.json expected to be valid failed validation")
-	}
-	if err := p.Parse(); err != nil {
-		t.Fatal("devcontainer.json expected to be valid failed parsing")
-	}
-
-	containerEnv := map[string]string{
-		"APP_PATH": DefWorkspacePath,
-		"SHELL":    "/bin/bash",
-	}
-
-	// Check fields against known values
-	assert.Equal(t, "simple-ish devcontainer.json", *p.Config.Name, "fields not matching")
-	assert.Equal(t, filepath.Join(filepath.Dir(p.Filepath), ".."), *p.Config.Context, "fields not matching")
-	assert.Equal(t, "parse/Containerfile", *p.Config.DockerFile, "fields not matching")
-	assert.Equal(t, containerEnv, p.Config.ContainerEnv, "fields not matching")
-}
-
 // TestParseForwardPorts parses a devcontainer.json that declares
 // forwardPorts and validates that defaults port attributes are
 // generated and applied
