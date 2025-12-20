@@ -157,9 +157,18 @@ func NewCommand(appName string, appVersion string) {
 
 	trillClient := trill.NewClient(socketAdddr, opts.MakeMeRoot)
 	imageName := createImageTagBase(&parser)
-	imageTag := fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-	slog.Debug("building container image", "tag", imageTag)
-	trillClient.BuildContainerImage(&parser, imageTag)
+	var suppressOutput bool = logLevel.Level() > slog.LevelInfo
+	var imageTag string
+	if parser.Config.Image != nil && len(*parser.Config.Image) > 0 {
+		imageTag = *parser.Config.Image
+		slog.Debug("pulling image tag from remote registry", "tag", imageTag)
+		trillClient.PullContainerImage(imageTag, suppressOutput)
+	} else {
+		imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
+		slog.Debug("building container image", "tag", imageTag, "suppressOutput", suppressOutput)
+		trillClient.BuildContainerImage(&parser, imageTag, suppressOutput)
+	}
+
 	slog.Debug("starting devcontainer", "tag", imageTag, "name", imageName)
 	trillClient.StartContainer(&parser, imageTag, imageName)
 }
