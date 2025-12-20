@@ -1,15 +1,10 @@
 {
   "name": "brig",
-  "context": "..",
-  "dockerFile": "./Containerfile",
+  "image": "golang",
   "containerEnv": {
-    "APP_PATH": "${containerWorkspaceFolder}",
-    "SHELL": "/bin/bash"
+    "HISTFILE": "${containerWorkspaceFolder}/.histfile",
   },
-  // TODO: Investigate how Visual Studio Code or the official CLI tool
-  // deals with volumes if they don't yet exist; are they created
-  // automatically?
   "mounts": [
-    "source=go-cache,target=/root/go,type=volume"
+    "source=go-cache,target=/go/pkg,type=volume"
   ]
 }

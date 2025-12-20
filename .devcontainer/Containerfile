@@ -1,5 +1,0 @@
-# hadolint ignore=DL3007
-FROM chainguard/go:latest
-
-WORKDIR "/workspace"
-ENTRYPOINT ["bash"]
