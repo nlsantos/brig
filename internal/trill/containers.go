@@ -41,7 +41,7 @@ import (
 //
 // TODO: Add a flag to toggle deletion of the context tarball after
 // the creation of the OCI image
-func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
+func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput bool) {
 	// While it's possible to have the REST API build an OCI image
 	// without having an intermediary tarball, I like having it around
 	// so it's easier to debug issues pertaining to the context
@@ -64,16 +64,21 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
 	// TODO: Support more of the build options offered by the
 	// devcontainer spec
 	buildOpts := mobyclient.ImageBuildOptions{
-		Context:    contextArchive,
-		Dockerfile: *p.Config.DockerFile,
-		Remove:     true,
-		Tags:       []string{tag},
+		Context:        contextArchive,
+		Dockerfile:     *p.Config.DockerFile,
+		Remove:         true,
+		SuppressOutput: suppressOutput,
+		Tags:           []string{tag},
 	}
 	buildResp, err := c.MobyClient.ImageBuild(context.Background(), contextArchive, buildOpts)
 	if err != nil {
 		panic(err)
 	}
 	defer buildResp.Body.Close()
+
+	if suppressOutput {
+		fmt.Println("Building image and starting container...")
+	}
 
 	decoder := json.NewDecoder(buildResp.Body)
 	for {
@@ -90,7 +95,7 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string) {
 		}
 
 		// Maybe add fluff to the output to make it prettier?
-		if msg.Stream != "" {
+		if msg.Stream != "" && !suppressOutput {
 			fmt.Printf("builder: %s", msg.Stream)
 		}
 		if msg.Error != "" {
