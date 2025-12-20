@@ -116,10 +116,11 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		containerEnvs = append(containerEnvs, fmt.Sprintf("%s=%s", key, val))
 	}
 	containerCfg := container.Config{
-		Env:       containerEnvs,
-		Image:     tag,
-		OpenStdin: true,
-		Tty:       true,
+		Env:        containerEnvs,
+		Image:      tag,
+		OpenStdin:  true,
+		Tty:        true,
+		WorkingDir: *p.Config.WorkspaceFolder,
 	}
 	if p.Config.ContainerUser != nil {
 		containerCfg.User = *p.Config.ContainerUser
