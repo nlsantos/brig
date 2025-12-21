@@ -72,7 +72,9 @@ func NewCommand(appName string, appVersion string) {
 	options.Register(&opts)
 	var defConfigPaths = []string{
 		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
 		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", appName)),
 	}
 	for _, defConfigPath := range defConfigPaths {
 		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
