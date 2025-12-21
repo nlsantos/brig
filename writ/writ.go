@@ -227,12 +227,12 @@ func (p *Parser) Parse() error {
 		}
 
 		for _, portIdx := range p.Config.ForwardPorts {
-			portAttributes := p.Config.PortsAttributes[string(portIdx)]
+			portAttributes := p.Config.PortsAttributes[portIdx]
 			if err := mergo.Merge(&portAttributes, p.Config.OtherPortsAttributes); err != nil {
 				slog.Error("unable to merge default values for portsAttributes", "port", portIdx, "error", err)
 				panic(err)
 			}
-			p.Config.PortsAttributes[string(portIdx)] = portAttributes
+			p.Config.PortsAttributes[portIdx] = portAttributes
 		}
 	}
 

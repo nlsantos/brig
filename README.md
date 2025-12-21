@@ -8,6 +8,7 @@ specs](https://github.com/devcontainers/spec); it's a long ways from it, but the
 `brig` also treats [podman](https://podman.io/) as a first-class citizen, since I prefer it over Docker.
 
 ## Table of contents
+
 - [Quick start](#quick-start)
 - [Why](#why)
 - [What does "podman as a first-class citizen" mean?](#what-does-podman-as-a-first-class-citizen-mean)
@@ -16,6 +17,7 @@ specs](https://github.com/devcontainers/spec); it's a long ways from it, but the
 - [Incompatibilities](#incompatibilities)
 
 ## Quick start
+
 - Download the latest [release](releases) for your platform then extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
 
 - Alternatively, install `brig` using `go`:
@@ -38,7 +40,7 @@ brig --help
 
 ### Flags file
 
-Refer to [`brigrc`](brigrc) for a sample configuration file. `brig` will find it automatically if you place it in either `"${HOME}/.config/brigrc"` (e.g., on *nix) or `"${USERPROFILE}/.brigrc"` (e.g., on Windows).
+Refer to [`brigrc`](brigrc) for a sample configuration file. `brig` will find it automatically if you place it in either `"${HOME}/.config/brigrc"` (e.g., on \*nix) or `"${USERPROFILE}/.brigrc"` (e.g., on Windows).
 
 ### Docker users
 
@@ -84,32 +86,37 @@ Keep in mind that `brig` is still very much alpha software at this point. While 
 That said, here's a list of what `brig` can do:
 
 ### Operations
+
 - [x] Automatically finding `devcontainer.json` files as per the spec
 - [x] Supports specifying a path for a `devcontainer.json` through a command-line parameter, if your config doesn't conform to the expected naming
 - [x] Specifying the socket address to use to connect to the container daemon, in case `brig` can't find it automatically
 
 ### Parsing and validation
+
 - [x] Validation of the target `devcontainer.json` file against the official spec
 
 ### Basic container operations
+
 - [x] Pulling the image specified `image` field from remote registries
 - [x] Building an image based on the `dockerFile` field, targeting the value of the `context` field
 - [x] Creating a container based on the image it builds
 - [x] Attaching the terminal to the container
   - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
-- [x] (_Very_) basic support for forwarding ports; see additional notes [here](#elevation-for-port-bindings) and [here](appport-vs-forwardports).
+- [x] (_Very_) basic support for forwarding ports; see additional notes [re: privilege elevation](#elevation-for-port-bindings) and [re: forwarding methods](appport-vs-forwardports).
 
 ### devcontainer-specific features
+
 - [x] Specifying a different UID to use inside the devcontainer via the ~~`remoteUser`~~ `containerUser` field (fixed as of [ed8e31b](commit/ed8e31ba4023eab3ab618675757b833e2425c978))
 - [x] Specifying kernel capabilities to add to the container via the `capAdd` field
 - [x] Specifying that the container should run in privileged mode via the `privileged` field
 - [x] Special environment variables (`containerWorkspaceFolder`, `localEnv`, etc.) work!
-	- Okay, they _partially_  work: `${containerEnv:*}` is a work in progress
+  - Okay, they _partially_ work: `${containerEnv:*}` is a work in progress
 - [x] Variable expansion (e.g., `${env:UNDEF_VAR:-default}` returns "default" if `UNDEF_VAR` doesn't exist)
 - [x] Mounting volumes as specified by the `mounts` field
-	- [x] Using variables and variable expansion in `mounts` items work as expected
+  - [x] Using variables and variable expansion in `mounts` items work as expected
 
 ### Useful extras
+
 Variable expansions go a little farther than what's available in the devcontainer spec: You can even do some other shell-inspired things with them, as long as they're supported by the [mvdan.cc/sh/v3](https://github.com/mvdan/sh) package. For examples of what operations are supported, refer to [writ/writ_test.go](writ/writ_test.go).
 
 Check out [Bash's Shell Parameter Expansion](https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html) to get an idea of what you can do. Just be aware that not all of them will be supported, or even make sense in this context.
@@ -118,11 +125,11 @@ That said, _being able to_ doesn't mean you _should_, as relying on features out
 
 ## Incompatibilities
 
-These are the known incompatibilities with the way Visual Studio Code and/or the official devcontainer command line tool works. They _may_ change in the future, depending on patches or changes in my preferred workflow.
+These are the known incompatibilities with the way Visual Studio Code and/or the official devcontainer command-line tool works. They _may_ change in the future, depending on patches or changes in my preferred workflow.
 
 ### Ephemeral containers
 
-I like my devcontainers ephemeral and pretty much stateless. On the other hand, Visual Studio Code (and possibly the official command line tool) keeps around stopped containers and just restarts them on subsequent usage.
+I like my devcontainers ephemeral and pretty much stateless. On the other hand, Visual Studio Code (and possibly the official command-line tool) keeps around stopped containers and just restarts them on subsequent usage.
 
 The spec, to my knowledge, doesn't mandate that stopped containers be kept around; it's _implied_ (see the values for the `shutdownAction` field), but I haven't (yet?) come across anything in the way devcontainers work that would necessitate keeping stopped containers around, so I just wrote `brig` to conform to my preferences.
 
@@ -145,13 +152,13 @@ Never going to be officially supported. I've got an idea of how `brig` will hand
 The spec [recommends using `forwardPorts` over `appPort`](https://containers.dev/implementors/json_reference/#:~:text=In%20most%20cases%2C%20we%20recommend%20using%20the%20new%20forwardPorts%20property%2E), but it seems to me that the latter is inferior:
 
 - `forwardPorts` only supports TCP connections:
-    * The `protocol` field in `portAttributes` and `otherPortsAttributes` only allows either `http` or `https`
-    * When `protocol` is unset, implementing tools are supposed to act as though it's set to `tcp`
-    * The spec will flag your configuration as invalid if you specify `tcp` (or anything else) explicitly.
+  - The `protocol` field in `portAttributes` and `otherPortsAttributes` only allows either `http` or `https`
+  - When `protocol` is unset, implementing tools are supposed to act as though it's set to `tcp`
+  - The spec will flag your configuration as invalid if you specify `tcp` (or anything else) explicitly.
 - `forwardPorts` does not support explicitly mapping container ports to a different port on the host:
-    * If `RequireLocalPort` on its corresponding `portAttributes` entry (or in `otherPortsAttributes`) is set to `false` (the default), the implementing tool is expected to silently map it to an arbitrary port.
+  - If `RequireLocalPort` on its corresponding `portAttributes` entry (or in `otherPortsAttributes`) is set to `false` (the default), the implementing tool is expected to silently map it to an arbitrary port.
 
-The spec also has [a blurb regarding publishing vs. forwarding ports](https://containers.dev/implementors/json_reference/#publishing-vs-forwarding-ports) that seems to imply that the official tool treats `appPort` entries as container-only ports  (i.e., not accessible on the host machine) by default.
+The spec also has [a blurb regarding publishing vs. forwarding ports](https://containers.dev/implementors/json_reference/#publishing-vs-forwarding-ports) that seems to imply that the official tool treats `appPort` entries as container-only ports (i.e., not accessible on the host machine) by default.
 
 I'm yet to check and verify this behavior using Visual Studio Code, and will update this section when I do.
 

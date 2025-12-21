@@ -25,7 +25,7 @@ func (c *Client) listenForTerminalResize() {
 			if err != nil {
 				return
 			}
-			c.ResizeContainer(uint(h), uint(w))
+			c.ResizeContainer(uint(h), uint(w)) // #nosec G115
 		}
 	}()
 }

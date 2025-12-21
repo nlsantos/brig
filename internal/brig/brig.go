@@ -157,7 +157,7 @@ func NewCommand(appName string, appVersion string) {
 
 	trillClient := trill.NewClient(socketAdddr, opts.MakeMeRoot)
 	imageName := createImageTagBase(&parser)
-	var suppressOutput bool = logLevel.Level() > slog.LevelInfo
+	suppressOutput := logLevel.Level() > slog.LevelInfo
 	var imageTag string
 	if parser.Config.Image != nil && len(*parser.Config.Image) > 0 {
 		imageTag = *parser.Config.Image

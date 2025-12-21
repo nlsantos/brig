@@ -191,12 +191,12 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		for port, bindings := range portMap {
 			var portBindings []network.PortBinding
 			for _, binding := range bindings {
-				hostIp := binding.HostIP
-				if len(hostIp) == 0 {
-					hostIp = "127.0.0.1"
+				hostIP := binding.HostIP
+				if len(hostIP) == 0 {
+					hostIP = "127.0.0.1"
 				}
 				portBindings = append(portBindings, network.PortBinding{
-					HostIP:   netip.MustParseAddr(hostIp),
+					HostIP:   netip.MustParseAddr(hostIP),
 					HostPort: binding.HostPort,
 				})
 			}
@@ -322,7 +322,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	// from stdout, as using stdin results in an invalid handle error.
 	slog.Debug("attempting to resize container's pseudo-TTY")
 	if w, h, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
-		c.ResizeContainer(uint(h), uint(w))
+		c.ResizeContainer(uint(h), uint(w)) // #nosec G115
 		slog.Debug("setting up hooks to handle terminal resizing")
 		c.listenForTerminalResize()
 	} else {

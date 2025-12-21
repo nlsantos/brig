@@ -1,3 +1,4 @@
+---
 on:
   workflow_dispatch:
   push:
@@ -30,5 +31,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           distribution: goreleaser
-          version: '~> v2'
+          version: "~> v2"
           args: release --clean
