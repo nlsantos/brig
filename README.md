@@ -1,5 +1,4 @@
-# brig, a tool for working in devcontainers
-
+# brig, the lightweight, native Go CLI for devcontainers
 This tool reads your `devcontainer.json` file then brings up a container for you to work in based on that configuration.
 
 `brig` attempts to conform to the [published devcontainer.json
