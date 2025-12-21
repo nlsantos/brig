@@ -37,6 +37,7 @@ type ExitCode int
 // Exiting brig returns one of these values to the shell
 const (
 	ExitNormal ExitCode = iota
+	ExitNonValidDevcontainerJSON
 	ExitNoSocketFound
 	ExitErrorParsingFlags
 	ExitNoDevcJSONFound
@@ -58,13 +59,14 @@ var StandardDevcontainerJSONPatterns = []string{
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) {
 	var opts = struct {
-		Help       options.Help  `getopt:"-h --help display help"`
-		Verbose    bool          `getopt:"-v --verbose enable diagnostic messages"`
-		Config     options.Flags `getopt:"-c --config=PATH path to rc file"`
-		Debug      bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
-		MakeMeRoot bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
-		Socket     string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
-		Version    bool          `getopt:"-V --version display version informaiton then exit"`
+		Help         options.Help  `getopt:"-h --help display help"`
+		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`
+		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
+		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		MakeMeRoot   bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
+		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
+		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
+		Version      bool          `getopt:"--version display version informaiton then exit"`
 	}{}
 
 	options.Register(&opts)
@@ -142,10 +144,16 @@ func NewCommand(appName string, appVersion string) {
 	slog.Debug("instantiating a parser for devcontainer.json", "path", targetDevcontainerJSON)
 	parser := writ.NewParser(targetDevcontainerJSON)
 	if err := parser.Validate(); err != nil {
-		panic(err)
+		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
+		os.Exit(int(ExitNonValidDevcontainerJSON))
 	}
 	if err := parser.Parse(); err != nil {
-		panic(err)
+		slog.Error("devcontainer.json could not be parsed", "path", targetDevcontainerJSON, "error", err)
+		os.Exit(int(ExitNonValidDevcontainerJSON))
+	}
+	if opts.ValidateOnly {
+		slog.Info("devcontainer.json validated and parsed successfully", "path", targetDevcontainerJSON)
+		os.Exit(int(ExitNormal))
 	}
 
 	socketAdddr := getSocketAddr(opts.Socket)
