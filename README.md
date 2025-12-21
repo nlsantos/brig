@@ -98,7 +98,7 @@ That said, here's a list of what `brig` can do:
   - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
 
 ### devcontainer-specific features
-- [x] Specifying a different UID to use inside the devcontainer via the `remoteUser` field
+- [x] Specifying a different UID to use inside the devcontainer via the ~~`remoteUser`~~ `containerUser` field (fixed as of [ed8e31b](commit/ed8e31ba4023eab3ab618675757b833e2425c978))
 - [x] Specifying kernel capabilities to add to the container via the `capAdd` field
 - [x] Specifying that the container should run in privileged mode via the `privileged` field
 - [x] Special environment variables (`containerWorkspaceFolder`, `localEnv`, etc.) work!
