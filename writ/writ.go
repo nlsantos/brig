@@ -186,8 +186,10 @@ func (p *Parser) Parse() error {
 		p.Config.Init = &defInit
 	}
 
+	// Defaults to true for when using an image Dockerfile and false
+	// when referencing a Docker Compose file.
 	if p.Config.OverrideCommand == nil {
-		defOverride := p.Config.DockerComposeFile != nil
+		defOverride := p.Config.DockerComposeFile == nil
 		p.Config.OverrideCommand = &defOverride
 	}
 
