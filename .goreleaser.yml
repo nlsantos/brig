@@ -3,6 +3,7 @@ version: 2.6
 before:
     hooks:
         - go mod tidy
+        - go test ./...
 
 builds:
     - main: ./cmd/brig
@@ -43,6 +44,20 @@ archives:
       - LICENSE
       - README.md
       - brigrc
+
+brews:
+  - name: nlsantos
+    repository:
+      owner: nlsantos
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TOKEN }}"
+    commit_author:
+      name: nlsantos
+      email: nlsantos@users.noreply.github.com
+    homepage: https://github.com/nlsantos/brig
+    description: "brig: the lightweight, native Go CLI for devcontainers"
+    test: system "#{bin}/brig --version"
+    install: bin.install "brig"
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}--checksums.txt"
