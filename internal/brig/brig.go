@@ -90,7 +90,7 @@ func NewCommand(appName string, appVersion string) {
 	if opts.Version {
 		fmt.Printf(heredoc.Doc(`
                     %s, version %s
-                    A tool for working with the devcontainer spec
+                    The lightweight, native Go CLI for devcontainers
                     Copyright (C) 2025  Neil Santos
 
                     License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
