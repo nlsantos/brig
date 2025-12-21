@@ -1,6 +1,7 @@
 # Flags/config file for brig (https://github.com/nlsantos/brig) # -*- sh -*-
 # ---
-# Store as "${HOME}/.config/brigrc" (on *nix) or "%USERPROFILE%/.brigrc" (on Windows)
+# Store as "${HOME}/.config/brigrc" or "${HOME}/.brigrc"(on *nix) or
+# "%USERPROFILE%/.brigrc" (on Windows)
 
 ## If true, enable ouputting Info level messages
 #verbose = true               # can also be v=true
@@ -8,6 +9,11 @@
 ## If true, enable outputting Debug level messages (implies
 ## verbose=true); WARNING: this can get pretty messy
 #debug = true                 # can also be d=true
+
+## If true, only performs schema validation and parsing before
+## exiting; a non-zero exit code means that the devcontainer.json file
+## it found failed validation or there was an error in parsing it
+#validate = true                 # can also be V=true
 
 ## If true, maps your UID and GID to 0:0 inside the devcontainer;
 ## i.e., you will be root. This is currently Podman-only, and is
