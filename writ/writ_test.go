@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nlsantos/brig/writ/internal/writ"
 	"github.com/stretchr/testify/assert"
 )
 
-// TestParse checks and illustrates the exepcted flow of parsing;
-// there are additional tests that exercise the parsing functionality
+// TestParse checks and illustrates the exepcted flow of parsing; it
+// also checks that the default values for fields are set correctly.
 func TestParse(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -32,6 +33,32 @@ func TestParse(t *testing.T) {
 	if err := p.Parse(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed parsing")
 	}
+
+	// Check setting default values
+	assert.True(t, *p.Config.OverrideCommand) // We're not using a Composer recipe
+	assert.Equal(t, DefWorkspacePath, *p.Config.WorkspaceFolder)
+
+	assert.Empty(t, p.Config.ForwardPorts)
+	assert.Empty(t, p.Config.PortsAttributes)
+	assert.Nil(t, p.Config.OtherPortsAttributes) // This doesn't get filled in if forwardPorts is empty
+
+	assert.Empty(t, p.Config.ContainerEnv)
+	assert.Empty(t, p.Config.RemoteEnv)
+
+	assert.Nil(t, p.Config.ContainerUser)
+	assert.True(t, *p.Config.UpdateRemoteUserUID)
+
+	assert.EqualValues(t, writ.StopContainer, *p.Config.ShutdownAction)
+	assert.False(t, *p.Config.Init)
+	assert.False(t, *p.Config.Privileged)
+
+	assert.Empty(t, p.Config.CapAdd)
+	assert.Empty(t, p.Config.SecurityOpt)
+
+	assert.Empty(t, p.Config.Mounts)
+	assert.Nil(t, p.Config.Features)
+	assert.Empty(t, p.Config.OverrideFeatureInstallOrder)
+	assert.Empty(t, p.Config.Customizations)
 }
 
 // TestParseAppPortInt parses a devcontainer.json with an appPort that
