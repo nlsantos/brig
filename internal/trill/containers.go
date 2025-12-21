@@ -170,7 +170,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	if p.Config.CapAdd != nil {
 		hostCfg.CapAdd = p.Config.CapAdd
 	}
-	if p.Config.Mounts != nil {
+	if len(p.Config.Mounts) > 0 {
 		var mounts = []mount.Mount{}
 		for _, mountEntry := range p.Config.Mounts {
 			mountItem := mount.Mount{
