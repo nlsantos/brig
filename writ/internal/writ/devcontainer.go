@@ -64,7 +64,7 @@ type DevcontainerConfig struct {
 	Features *Features `json:"features,omitempty"`
 	// Ports that are forwarded from the container to the local machine. Can be an integer port
 	// number, or a string of the format "host:port_number".
-	ForwardPorts []ForwardPort `json:"forwardPorts,omitempty"`
+	ForwardPorts ForwardPorts `json:"forwardPorts,omitempty"`
 	// Host hardware requirements.
 	HostRequirements *HostRequirements `json:"hostRequirements,omitempty"`
 	// Passes the --init flag when creating the dev container.
@@ -290,10 +290,7 @@ type CacheFrom struct {
 	StringArray []string
 }
 
-type ForwardPort struct {
-	Integer *int64
-	String  *string
-}
+type ForwardPorts []string
 
 type GPUUnion struct {
 	Bool     *bool
