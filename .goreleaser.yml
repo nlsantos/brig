@@ -5,7 +5,7 @@ before:
         - go mod tidy
 
 builds:
-    - main: ./cmd
+    - main: ./cmd/brig
       id: "brig"
       binary: brig
       ldflags:
