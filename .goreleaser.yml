@@ -39,7 +39,7 @@ archives:
       - goos: windows
         formats:
           - zip
-    wrap_in_directory: true
+    wrap_in_directory: false
     files:
       - LICENSE
       - README.md
