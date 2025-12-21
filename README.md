@@ -92,10 +92,12 @@ That said, here's a list of what `brig` can do:
 - [x] Validation of the target `devcontainer.json` file against the official spec
 
 ### Basic container operations
+- [x] Pulling the image specified `image` field from remote registries
 - [x] Building an image based on the `dockerFile` field, targeting the value of the `context` field
 - [x] Creating a container based on the image it builds
 - [x] Attaching the terminal to the container
   - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
+- [x] (_Very_) basic support for forwarding ports; see additional notes [here](#elevation-for-port-bindings) and [here](appport-vs-forwardports).
 
 ### devcontainer-specific features
 - [x] Specifying a different UID to use inside the devcontainer via the ~~`remoteUser`~~ `containerUser` field (fixed as of [ed8e31b](commit/ed8e31ba4023eab3ab618675757b833e2425c978))
@@ -137,6 +139,23 @@ For what it's worth, I'm not _opposed_ to having a dedicated build step; I'm jus
 ### Elevation for port bindings
 
 Never going to be officially supported. I've got an idea of how `brig` will handle configuration that specifies a privileged port, but it will not involve privilege elevation.
+
+### appPort vs forwardPorts
+
+The spec [recommends using `forwardPorts` over `appPort`](https://containers.dev/implementors/json_reference/#:~:text=In%20most%20cases%2C%20we%20recommend%20using%20the%20new%20forwardPorts%20property%2E), but it seems to me that the latter is inferior:
+
+- `forwardPorts` only supports TCP connections:
+    * The `protocol` field in `portAttributes` and `otherPortsAttributes` only allows either `http` or `https`
+    * When `protocol` is unset, implementing tools are supposed to act as though it's set to `tcp`
+    * The spec will flag your configuration as invalid if you specify `tcp` (or anything else) explicitly.
+- `forwardPorts` does not support explicitly mapping container ports to a different port on the host:
+    * If `RequireLocalPort` on its corresponding `portAttributes` entry (or in `otherPortsAttributes`) is set to `false` (the default), the implementing tool is expected to silently map it to an arbitrary port.
+
+The spec also has [a blurb regarding publishing vs. forwarding ports](https://containers.dev/implementors/json_reference/#publishing-vs-forwarding-ports) that seems to imply that the official tool treats `appPort` entries as container-only ports  (i.e., not accessible on the host machine) by default.
+
+I'm yet to check and verify this behavior using Visual Studio Code, and will update this section when I do.
+
+Note that `brig` will expose on the host machine all ports (if inputted correctly) specified in `appPort`.
 
 ### No runArgs support
 
