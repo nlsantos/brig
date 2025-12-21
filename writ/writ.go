@@ -29,6 +29,7 @@ import (
 	"regexp"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/nlsantos/brig/writ/internal/writ"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/tailscale/hujson"
@@ -193,6 +194,54 @@ func (p *Parser) Parse() error {
 		p.Config.OverrideCommand = &defOverride
 	}
 
+	if len(p.Config.ForwardPorts) > 0 {
+		slog.Debug("setting up port forwarding attributes")
+
+		forwardNotify := writ.Notify
+		// This isn't one of the explicitly defined values for this
+		// field, but the spec states that if this field is unset,
+		// tools are expected to behave as though it's set to "tcp"
+		protocol := writ.Protocol("tcp")
+		defFalse := false
+
+		// Default values from the spec
+		defOtherPortsAttributes := writ.PortAttributes{
+			Label:            nil,
+			Protocol:         &protocol,
+			OnAutoForward:    &forwardNotify,
+			RequireLocalPort: &defFalse,
+			ElevateIfNeeded:  &defFalse,
+		}
+
+		// This needs to exist if forwardPorts isn't nil as it's used as a
+		// reference when setting them up
+		if p.Config.OtherPortsAttributes == nil {
+			p.Config.OtherPortsAttributes = &defOtherPortsAttributes
+		} else if err := mergo.Merge(p.Config.OtherPortsAttributes, defOtherPortsAttributes); err != nil {
+			slog.Error("unable to merge default values for otherPortsAttributes", "error", err)
+			panic(err)
+		}
+
+		if len(p.Config.PortsAttributes) == 0 {
+			p.Config.PortsAttributes = map[string]writ.PortAttributes{}
+		}
+
+		for _, forwardPort := range p.Config.ForwardPorts {
+			var portIdx string
+			if forwardPort.Integer != nil {
+				portIdx = fmt.Sprintf("%d", *forwardPort.Integer)
+			} else {
+				portIdx = *forwardPort.String
+			}
+			portAttributes := p.Config.PortsAttributes[portIdx]
+			if err := mergo.Merge(&portAttributes, p.Config.OtherPortsAttributes); err != nil {
+				slog.Error("unable to merge default values for portsAttributes", "port", portIdx, "error", err)
+				panic(err)
+			}
+			p.Config.PortsAttributes[portIdx] = portAttributes
+		}
+	}
+
 	if p.Config.Privileged == nil {
 		defPrivileged := false
 		p.Config.Privileged = &defPrivileged
@@ -219,6 +268,7 @@ func (p *Parser) Parse() error {
 		p.Config.WorkspaceFolder = &defWorkspacePath
 		slog.Debug("no value given; using current default value", "root/workspaceFolder", *p.Config.WorkspaceFolder)
 	}
+	slog.Info("workspace folder", "path", *p.Config.WorkspaceFolder)
 
 	slog.Debug("expanding variables", "section", "containerEnv")
 	if p.Config.ContainerEnv != nil {
