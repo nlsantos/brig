@@ -45,8 +45,9 @@ archives:
       - README.md
       - brigrc
 
-brews:
-  - name: nlsantos
+homebrew_casks:
+  - name: brig
+    description: "the lightweight, native Go CLI for devcontainers"
     repository:
       owner: nlsantos
       name: homebrew-tap
@@ -54,10 +55,15 @@ brews:
     commit_author:
       name: nlsantos
       email: nlsantos@users.noreply.github.com
-    homepage: https://github.com/nlsantos/brig
-    description: "brig: the lightweight, native Go CLI for devcontainers"
-    test: system "#{bin}/brig --version"
-    install: bin.install "brig"
+    directory: Casks
+    url:
+      verified: "github.com/nlsantos/brig"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xatttr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/brig"]
+          end
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}--checksums.txt"
