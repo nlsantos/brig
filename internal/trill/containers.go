@@ -21,14 +21,17 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/go-connections/nat"
 	"github.com/moby/go-archive"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
 	mobyclient "github.com/moby/moby/client"
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/nlsantos/brig/writ"
@@ -144,13 +147,14 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		containerEnvs = append(containerEnvs, fmt.Sprintf("%s=%s", key, val))
 	}
 	containerCfg := container.Config{
-		Env:        containerEnvs,
-		Image:      tag,
-		OpenStdin:  true,
-		Tty:        true,
-		WorkingDir: *p.Config.WorkspaceFolder,
+		Env:          containerEnvs,
+		ExposedPorts: make(network.PortSet),
+		Image:        tag,
+		OpenStdin:    true,
+		Tty:          true,
+		WorkingDir:   *p.Config.WorkspaceFolder,
 	}
-	if p.Config.ContainerUser != nil {
+	if p.Config.RemoteUser != nil {
 		containerCfg.User = *p.Config.ContainerUser
 	}
 	slog.Debug("using container config", "config", containerCfg)
@@ -160,7 +164,8 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 			// By default, the context is mounted as the workspace folder
 			fmt.Sprintf("%s:%s", *p.Config.Context, *p.Config.WorkspaceFolder),
 		},
-		Privileged: *p.Config.Privileged,
+		PortBindings: make(network.PortMap),
+		Privileged:   *p.Config.Privileged,
 	}
 
 	if c.MakeMeRoot {
@@ -170,6 +175,60 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	if p.Config.CapAdd != nil {
 		hostCfg.CapAdd = p.Config.CapAdd
 	}
+
+	// This is very simplistic and will break in a multi-container
+	// (i.e., Compose) environment
+	if p.Config.AppPort != nil && len(*p.Config.AppPort) > 0 {
+		exposedPorts, portMap, err := nat.ParsePortSpecs(*p.Config.AppPort)
+		if err != nil {
+			slog.Error("error parsing appPort", "appPort", *p.Config.AppPort, "error", err)
+		}
+
+		for port, set := range exposedPorts {
+			containerCfg.ExposedPorts[network.MustParsePort(string(port))] = set
+		}
+
+		for port, bindings := range portMap {
+			var portBindings []network.PortBinding
+			for _, binding := range bindings {
+				hostIp := binding.HostIP
+				if len(hostIp) == 0 {
+					hostIp = "127.0.0.1"
+				}
+				portBindings = append(portBindings, network.PortBinding{
+					HostIP:   netip.MustParseAddr(hostIp),
+					HostPort: binding.HostPort,
+				})
+			}
+			hostCfg.PortBindings[network.MustParsePort(string(port))] = portBindings
+		}
+	}
+
+	// TODO: Add a brig option to specify that ports in forwardPort
+	// should listen on 0.0.0.0 instead of 127.0.0.1
+	if len(p.Config.ForwardPorts) > 0 {
+		for _, forwardPort := range p.Config.ForwardPorts {
+			if containerCfg.ExposedPorts == nil {
+				containerCfg.ExposedPorts = make(network.PortSet)
+			}
+			if hostCfg.PortBindings == nil {
+				hostCfg.PortBindings = make(network.PortMap)
+			}
+			port, err := network.ParsePort(forwardPort)
+			if err != nil {
+				slog.Error("cannot parse forward port", "port", forwardPort, "error", err)
+				panic(err)
+			}
+			containerCfg.ExposedPorts[port] = struct{}{}
+			hostCfg.PortBindings[port] = []network.PortBinding{
+				network.PortBinding{
+					HostIP:   netip.MustParseAddr("127.0.0.1"),
+					HostPort: forwardPort,
+				},
+			}
+		}
+	}
+
 	if len(p.Config.Mounts) > 0 {
 		var mounts = []mount.Mount{}
 		for _, mountEntry := range p.Config.Mounts {
