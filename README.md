@@ -134,6 +134,10 @@ However, I've found in practice that it's not necessarily an issue, as I spin up
 
 For what it's worth, I'm not _opposed_ to having a dedicated build step; I'm just not convinced of its necessity, and I'm wary of what I perceive would be a penalty to my workflow.
 
+### Elevation for port bindings
+
+Never going to be officially supported. I've got an idea of how `brig` will handle configuration that specifies a privileged port, but it will not involve privilege elevation.
+
 ### No runArgs support
 
 The devcontainer spec defines a field named `runArgs`. It's an array of command line parameters to pass to Docker when running the container. I think the intent is to allow passing args that aren't covered by other fields.
