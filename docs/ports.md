@@ -8,16 +8,18 @@ The devcontainer specification expects implementations to support privilege elev
 
 ## `appPort` vs `forwardPorts`
 
-While  the devcontainer specification [recommends using `forwardPorts` over `appPort`](https://containers.dev/implementors/json_reference/#:~:text=In%20most%20cases%2C%20we%20recommend%20using%20the%20new%20forwardPorts%20property%2E), `brig` treats `appPort` as the primary method for binding ports. This is due to several technical limitations inherent to `forwardPorts`:
+While the devcontainer specification [recommends using `forwardPorts` over `appPort`](https://containers.dev/implementors/json_reference/#:~:text=In%20most%20cases%2C%20we%20recommend%20using%20the%20new%20forwardPorts%20property%2E), `brig` treats `appPort` as the primary method for binding ports. This is due to several technical limitations inherent to `forwardPorts`:
 
-1.  **Protocol Limitations:** `forwardPorts` only supports TCP:
-  - The `protocol` field in `portAttributes` only allows `http` or `https` (which imply TCP).
-  - If `protocol` is unset, it's supposed to be treated as though it was set to `tcp`.
-  - Explicitly specifying `tcp` (or `udp`) causes a devcontainer.json to fail validation.
+1. **Protocol Limitations:** `forwardPorts` only supports TCP:
 
-2.  **Lack of Mapping Control:** `forwardPorts` does not support explicit host-to-container mapping (e.g., mapping container port 3000 to host port 8080).
-  - If `RequireLocalPort` is set to `false` (the default), implementing tools are expected to silently map the container port to an arbitrary ephemeral port on the host.
-  - This unpredictability breaks workflows that rely on fixed addresses (e.g., OAuth callbacks or bookmarking `localhost:8080`).
+- The `protocol` field in `portAttributes` only allows `http` or `https` (which imply TCP).
+- If `protocol` is unset, it's supposed to be treated as though it was set to `tcp`.
+- Explicitly specifying `tcp` (or `udp`) causes a devcontainer.json to fail validation.
+
+2. **Lack of Mapping Control:** `forwardPorts` does not support explicit host-to-container mapping (e.g., mapping container port 3000 to host port 8080).
+
+- If `RequireLocalPort` is set to `false` (the default), implementing tools are expected to silently map the container port to an arbitrary ephemeral port on the host.
+- This unpredictability breaks workflows that rely on fixed addresses (e.g., OAuth callbacks or bookmarking `localhost:8080`).
 
 ### Behavior difference
 

@@ -1,4 +1,5 @@
 # brig
+
 **The lightweight, native Go CLI for devcontainers**
 
 `brig` reads your `devcontainer.json` configuration and spins up a containerized development environment. It is designed as a standalone, dependency-free alternative to the [official command-line tool](https://github.com/devcontainers/cli) with first-class support for [podman](https://podman.io/) and rootless workflows.
@@ -63,7 +64,7 @@ _To summarize, Docker support is a side-effect of podman's compatibility with th
 While `brig` is currently in **alpha**, it supports the core devcontainer workflow:
 
 - **Spec compliance:** Validates `devcontainer.json` configuration against the official schema.
-- **Container lifecycle:** Builds images (via `dockerFile`) or pull images from remote registries (via `image`) and creates containers, using git metadata when possible.
+- **Container lifecycle:** Builds images (via `dockerFile`) or pull images from remote registries (via `image`) and creates containers, using Git metadata when possible.
 - **Container configuration:** Supports `capAdd`, `privileged` mode, `mounts`, `containerEnv`.
 - **Networking:** Binds ports specified in `appPorts` and `forwardPorts`.
 - **Variable expansion:** Robust variable expansion inspired by standard Unix shells powered by [mvdan/sh](https://github.com/mvdan/sh).
