@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
-	"github.com/nlsantos/brig/writ/internal/writ"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/tailscale/hujson"
 	"mvdan.cc/sh/v3/shell"
@@ -65,9 +64,9 @@ const DefWorkspacePath string = "/workspace"
 // A Parser contains metadata about a target devcontainer.jkson file,
 // as well as the configuration for the intended devcontainer itself.
 type Parser struct {
-	Filepath      string                  // Path to the target devcontainer.json
-	Config        writ.DevcontainerConfig // The parsed contents of the target devcontainer.json
-	IsValidConfig bool                    // Whether or not the contents of the devcontainer.json conform to the spec; see p.Validate()
+	Filepath      string             // Path to the target devcontainer.json
+	Config        DevcontainerConfig // The parsed contents of the target devcontainer.json
+	IsValidConfig bool               // Whether or not the contents of the devcontainer.json conform to the spec; see p.Validate()
 
 	standardizedJSON []byte // The raw contents of the target devcontainer.json, converted to standard JSON
 }
@@ -197,15 +196,15 @@ func (p *Parser) Parse() error {
 	if len(p.Config.ForwardPorts) > 0 {
 		slog.Debug("setting up port forwarding attributes")
 
-		forwardNotify := writ.Notify
+		forwardNotify := Notify
 		// This isn't one of the explicitly defined values for this
 		// field, but the spec states that if this field is unset,
 		// tools are expected to behave as though it's set to "tcp"
-		protocol := writ.Protocol("tcp")
+		protocol := Protocol("tcp")
 		defFalse := false
 
 		// Default values from the spec
-		defOtherPortsAttributes := writ.PortAttributes{
+		defOtherPortsAttributes := PortAttributes{
 			Label:            nil,
 			Protocol:         &protocol,
 			OnAutoForward:    &forwardNotify,
@@ -223,7 +222,7 @@ func (p *Parser) Parse() error {
 		}
 
 		if len(p.Config.PortsAttributes) == 0 {
-			p.Config.PortsAttributes = map[string]writ.PortAttributes{}
+			p.Config.PortsAttributes = map[string]PortAttributes{}
 		}
 
 		for _, portIdx := range p.Config.ForwardPorts {
@@ -242,11 +241,11 @@ func (p *Parser) Parse() error {
 	}
 
 	if p.Config.ShutdownAction == nil {
-		defShutdownAction := writ.ShutdownActionNone
+		defShutdownAction := ShutdownActionNone
 		if p.Config.DockerComposeFile != nil {
-			defShutdownAction = writ.StopCompose
+			defShutdownAction = StopCompose
 		} else {
-			defShutdownAction = writ.StopContainer
+			defShutdownAction = StopContainer
 		}
 		p.Config.ShutdownAction = &defShutdownAction
 	}
