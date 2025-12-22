@@ -15,12 +15,9 @@ fi
 # Run Super-Linter locally with the current directory mounted as the
 # target
 "${OCI_CLI}" run --rm \
-	-e GOCACHE=/tmp/.cache/go \
-	-e GOMODCACHE=/tmp/.mod-cache \
-	-e RUN_LOCAL=true \
+	-e GITHUB_STATUS_REPORTER=false \
 	-e DEFAULT_BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
 	--user root:root \
-	--env-file .super-linter.env \
 	-v "$(pwd)":/tmp/lint:Z \
 	-v "$(git rev-parse --git-common-dir)":"$(git rev-parse --git-common-dir)":ro \
-	ghcr.io/super-linter/super-linter:latest
+	ghcr.io/oxsecurity/megalinter:v9
