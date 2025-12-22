@@ -298,11 +298,13 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	// e.g., a regular shell
 	slog.Debug("setting up terminal input/output")
 	var wg sync.WaitGroup
-	wg.Go(func() {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		if _, err := io.Copy(os.Stdout, resp.Reader); err != nil {
-			panic(err)
+			slog.Error("encountered an error copying container output to stdout", "error", err)
 		}
-	})
+	}()
 	go func() {
 		if _, err := io.Copy(resp.Conn, os.Stdin); err != nil {
 			panic(err)
