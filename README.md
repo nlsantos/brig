@@ -17,17 +17,31 @@ specs](https://github.com/devcontainers/spec); it's a long ways from it, but the
 
 ## Quick start
 
-- Download the latest [release](releases) for your platform then extract the binary to somewhere available in your `$PATH` (maybe `~/.local/bin`?).
-
-- Alternatively, install `brig` using `go`:
+### Via Go
 
 ```bash
 go install github.com/nlsantos/brig/cmd/brig@latest
 ```
 
-- Using your preferred terminal, `cd` into a directory with a `devcontainer.json`.
+### Via Homebrew
 
-- Run `brig`, wait for the build process to complete, and you should be plopped into a shell inside your devcontainer.
+```bash
+brew install nlsantos/tap/brig
+```
+
+### Manual install
+
+Download the [latest release](releases) for your platform and extract the binary to a directory in your `$PATH` (e.g., `~/.local/bin`).
+
+---
+
+#### Usage
+
+- `cd` into a directory with a `devcontainer.json`.
+
+- Run `brig`.
+
+- Wait for the build to complete. Once finished, your terminal will be attached to the devcontainer.
 
 ### Options
 
@@ -39,13 +53,7 @@ brig --help
 
 ### Flags file
 
-Refer to [`brigrc`](brigrc) for a sample configuration file. `brig` will find it automatically if you place it in either `"${HOME}/.config/brigrc"` (e.g., on \*nix) or `"${USERPROFILE}/.brigrc"` (e.g., on Windows).
-
-### Docker users
-
-To get `brig` working with Docker, you need to specify the socket address (or named pipe on Windows) Docker listens on by passing it to the `--socket` command line argument or the `"socket ="` entry in the flags file.
-
-(To save you a search, on Windows plus Docker, the value is likely to be `npipe:////./pipe/docker_engine`)
+Refer to [`brigrc`](brigrc) for a sample configuration file. `brig` will find it automatically if you place it in either `"${HOME}/.config/brigrc"`, `"${HOME}/.brigrc"` (e.g., on \*nix) or `"${USERPROFILE}/.brigrc"` (e.g., on Windows).
 
 ## Why
 
