@@ -21,12 +21,14 @@
         "shinichi-takii.sql-bigquery",
         "tamasfe.even-better-toml"
       ]
-    },
+    }
   },
   "forwardPorts": [],
-  "mounts": [{
-    "source": "${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud",
-    "target": "/root/.config/gcloud",
-    "type": "bind"
-  }]
+  "mounts": [
+    {
+      "source": "${env:XDG_CONFIG_HOME}${env:APPLOCALDATA}/gcloud",
+      "target": "/root/.config/gcloud",
+      "type": "bind"
+    }
+  ]
 }

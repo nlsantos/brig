@@ -2,9 +2,7 @@
   "name": "brig",
   "image": "golang",
   "containerEnv": {
-    "HISTFILE": "${containerWorkspaceFolder}/.histfile",
+    "HISTFILE": "${containerWorkspaceFolder}/.histfile"
   },
-  "mounts": [
-    "source=go-cache,target=/go/pkg,type=volume"
-  ]
+  "mounts": ["source=go-cache,target=/go/pkg,type=volume"]
 }

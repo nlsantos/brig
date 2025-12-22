@@ -10,7 +10,7 @@
       // The spec does not allow TCP as a protocol; however, if this
       // is left unset, the behavior is to treat it as though it's set
       // to tcp
-      "protocol": "tcp",
+      "protocol": "tcp"
     },
     "db:5432": {
       "elevateIfNeeded": true

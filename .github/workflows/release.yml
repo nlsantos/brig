@@ -26,7 +26,7 @@ jobs:
         id: go
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a
         env:
           HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

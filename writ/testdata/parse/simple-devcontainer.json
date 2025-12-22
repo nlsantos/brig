@@ -1,3 +1,4 @@
-{ // simplest valid devcontainer.json
+{
+  // simplest valid devcontainer.json
   "image": "golang"
 }

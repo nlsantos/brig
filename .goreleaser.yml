@@ -1,25 +1,26 @@
+---
 version: 2.6
 
 before:
-    hooks:
-        - go mod tidy
-        - go test ./...
+  hooks:
+    - go mod tidy
+    - go test ./...
 
 builds:
-    - main: ./cmd/brig
-      id: "brig"
-      binary: brig
-      ldflags:
-        - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
-      env:
-        - CGO_ENABLED=0
-      goos:
-        - linux
-        - darwin
-        - windows
-      goarch:
-        - amd64
-        - arm64
+  - main: ./cmd/brig
+    id: "brig"
+    binary: brig
+    ldflags:
+      - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
 
 upx:
   - enabled: true

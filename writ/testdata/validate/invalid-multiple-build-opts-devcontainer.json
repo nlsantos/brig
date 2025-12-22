@@ -3,5 +3,5 @@
   "context": "..",
   // The spec states build options are exclusive
   "image": "scratch",
-  "dockerFile": "./Containerfile",
+  "dockerFile": "./Containerfile"
 }
