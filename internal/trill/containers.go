@@ -221,7 +221,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 			}
 			containerCfg.ExposedPorts[port] = struct{}{}
 			hostCfg.PortBindings[port] = []network.PortBinding{
-				network.PortBinding{
+				{
 					HostIP:   netip.MustParseAddr("127.0.0.1"),
 					HostPort: forwardPort,
 				},

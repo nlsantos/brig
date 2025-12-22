@@ -1,5 +1,5 @@
 /*
-   brig: a tool for working with devcontainer.json
+   brig: The lightweight, native Go CLI for devcontainers
    Copyright (C) 2025  Neil Santos
 
    This program is free software: you can redistribute it and/or modify
@@ -44,12 +44,16 @@ const (
 	ExitTooManyDevJSONFound
 )
 
-// A default prefix used for the tag of images built by brig
+// ImageTagPrefix is the default prefix used for the tag of images
+// built by brig
 const ImageTagPrefix = "localhost/devc--"
 
+// StandardDevcontainerJSONPatterns is a list of paths and globs where
+// devcontainer.json files could reside.
+//
 // Based on
-// https://containers.dev/implementors/spec/#devcontainerjson;
-// update as necessary
+// https://containers.dev/implementors/spec/#devcontainerjson; update
+// as necessary
 var StandardDevcontainerJSONPatterns = []string{
 	".devcontainer.json",
 	".devcontainer/devcontainer.json",

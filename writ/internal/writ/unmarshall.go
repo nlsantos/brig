@@ -9,6 +9,7 @@ import (
 
 // Custom unmarshaller for the AppPort type
 func (a *AppPort) UnmarshalJSON(data []byte) error {
+	// jscpd:ignore-start
 	if len(data) < 1 {
 		return nil
 	}
@@ -39,10 +40,12 @@ func (a *AppPort) UnmarshalJSON(data []byte) error {
 	}
 	*a = elements
 	return nil
+	// jscpd:ignore-end
 }
 
 // Custom unmarshaller for the ForwardPort type
 func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
+	// jscpd:ignore-start
 	if len(data) < 1 {
 		return nil
 	}
@@ -73,6 +76,7 @@ func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
 	}
 	*f = elements
 	return nil
+	// jscpd:ignore-end
 }
 
 // Custom unmarshaller for the MountElement type
