@@ -1,18 +1,15 @@
-# brig, the lightweight, native Go CLI for devcontainers
-This tool reads your `devcontainer.json` file then brings up a container for you to work in based on that configuration.
+# brig
+**The lightweight, native Go CLI for devcontainers**
 
-`brig` attempts to conform to the [published devcontainer.json
-specs](https://github.com/devcontainers/spec); it's a long ways from it, but the goal is to eventually be an alternative to the [official command-line tool](https://github.com/devcontainers/cli).
-
-`brig` also treats [podman](https://podman.io/) as a first-class citizen, since I prefer it over Docker.
+`brig` reads your `devcontainer.json` configuration and spins up a containerized development environment. It is designed as a standalone, dependency-free alternative to the [official command-line tool](https://github.com/devcontainers/cli) with first-class support for [podman](https://podman.io/) and rootless workflows.
 
 ## Table of contents
 
 - [Quick start](#quick-start)
-- [Why](#why)
-- [What does "podman as a first-class citizen" mean?](#what-does-podman-as-a-first-class-citizen-mean)
-- [Why not...?](#why-not)
-- [What works](#what-works)
+- [Why use `brig`?](#why-use-brig)
+- [Podman-first design](#podman-first-design)
+- [Features](#features)
+- [Alternatives](#alternatives)
 - [Incompatibilities](#incompatibilities)
 
 ## Quick start
@@ -33,9 +30,7 @@ brew install nlsantos/tap/brig
 
 Download the [latest release](releases) for your platform and extract the binary to a directory in your `$PATH` (e.g., `~/.local/bin`).
 
----
-
-#### Usage
+### Usage
 
 - `cd` into a directory with a `devcontainer.json`.
 
@@ -45,110 +40,44 @@ Download the [latest release](releases) for your platform and extract the binary
 
 ### Options
 
-`brig` supports a handful of parameters that influence the way it works. To view the list, run:
+- **Help**: Run `brig --help` to see all supported flags.
+- **Configuration**: `brig` looks for a `brigrc` configuration file in `${HOME}/.config/brigrc`, `${HOME}/.brigrc`, or `${USERPROFILE}/.brigrc`. See [brigrc](brigrc) for a sample.
 
-```bash
-brig --help
-```
+## Why use `brig`?
 
-### Flags file
+1. **Lightweight & Fast**: Unlike the official command-line tool, `brig` is a single static binary. It installs instantly, starts up immediately, and requires no massive dependency tree.
+2. **Minimalist Design**: Built along the lines of the Unix philosophy of building one thing that does one thing well, `brig` strives to do its job and get out of your way.
+3. **Editor Agnostic**: `brig` unlocks the powerful and convenient workflow enabled by devcontainers to users of Emacs, Vim, Helix, and other editors.
+4. **Security Focus**: Built with [podman](https://podman.io/) in mind, `brig`'s implementation choices are made in alignment with podman's design of running containers as a regular user. This aligns well with usage in highly locked-down environments (e.g., company-issued workstations).
 
-Refer to [`brigrc`](brigrc) for a sample configuration file. `brig` will find it automatically if you place it in either `"${HOME}/.config/brigrc"`, `"${HOME}/.brigrc"` (e.g., on \*nix) or `"${USERPROFILE}/.brigrc"` (e.g., on Windows).
+## Podman-first design
 
-## Why
+The devcontainer spec is written primarily with the assumption that the underlying container platform is Docker. `brig` was build to treat [podman](https://podman.io/) as a first-class citizen.
 
-[devcontainers](https://containers.dev) are pretty nifty. It's also **very** nifty that, _technically_, they're not tied to Visual Studio Code. This suits me, as I consider myself an Emacs user.
+I prefer podman for its rootless design. While `brig` uses Moby's packages and the Docker REST API, development prioritizes compatibility with podman. If the Moby packages ever become incompatible with Podman, `brig` will remain on the latest version that is.
 
-For the most part, one can make do with relatively simple shell scripts to build a container based on the `Containerfile`/`Dockerfile` that usually accompanies a devcontainer recipe. (This what I did for several years before writing brig; see [`start-dev-container.sh`](blob/38d4ae10557422c37af349c9df3b460c343d487c/start-dev-container.sh))
+_To summarize, Docker support is a side-effect of podman's compatibility with the Docker REST API and Moby packages. While I aim for feature parity, podman support will always take precedence._
 
-However, as I've been diving into the spec, I've been finding more and more little things that I've been wanting to implement in the devcontainer recipes my team is using (e.g., lifecycle commands).
+## Features
 
-While those can be replicated (for the most part) using the aforementioned shell scripts, the information is already there in the devcontainer recipe: it seems a shame to have that information be duplicated when it need not be.
+While `brig` is currently in **alpha**, it supports the core devcontainer workflow:
 
-**I also wanted to learn Go.** I've been cosplaying as a DevOps
-engineer for the past ~10 years and most of the programming I've done have been little helper scripts in either shell or Python. I figured it was high time I got back into working on free software.
+- **Spec compliance:** Validates `devcontainer.json` configuration against the official schema.
+- **Container lifecycle:** Builds images (via `dockerFile`) or pull images from remote registries (via `image`) and creates containers, using git metadata when possible.
+- **Container configuration:** Supports `capAdd`, `privileged` mode, `mounts`, `containerEnv`.
+- **Networking:** Binds ports specified in `appPorts` and `forwardPorts`.
+- **Variable expansion:** Robust variable expansion inspired by standard Unix shells powered by [mvdan/sh](https://github.com/mvdan/sh).
 
-## What does "podman as a first-class citizen" mean?
+_For a more expansive list of features, refer to [docs/features.md](docs/features.md)._
 
-The devcontainer spec is written primarily with the assumption that the underlying container platform is Docker. The naming of the fields (`dockerFile`, `dockerComposeFile`) attests to that.
+## Alternatives
 
-I only use Docker when I'm forced to; I prefer Podman primarily due to its rootless design. While `brig` uses Moby's packages, and I'm referencing the Docker REST API primarily, it's only ever going to be to the extent that Podman is able to stay compatible with it.
-
-Should the Moby packages ever become incompatible with Podman, `brig` will remain with the latest version that is. I will also never implement or integrate a devcontainer feature or capability that Podman does not support.
-
-Basically, the fact that `brig` works with Docker is a _side-effect_ of Podman's compatibility with the Docker REST API and Moby packages. I will make changes that promote feature parity, but if support for Docker becomes too onerous to maintain, I won't hesitate to drop it.
-
-## Why not...?
-
-- **[devcontainers/cli](https://github.com/devcontainers/cli)**
-  - The official command-line tool is a Node app; 'nuff said.
-- **[UPwith-me/Container-Maker](https://github.com/UPwith-me/Container-Maker)**
-  - ~~`cm` is pretty much built around Docker; it _might_ be possible to use it with podman,~~ ([`cm` supports Podman](https://github.com/UPwith-me/Container-Maker?tab=readme-ov-file#rootless-support)) but I found out about the project after I've already spent a couple of days writing `brig`
-  - I do find their [entrypoint script](https://github.com/UPwith-me/Container-Maker/blob/main/pkg/runner/entrypoint.go) pretty interesting, so I'll probably ~~steal~~ adopt that at some point
-
-## What works
-
-Keep in mind that `brig` is still very much alpha software at this point. While as of [38d4ae1](commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
-
-That said, here's a list of what `brig` can do:
-
-### Operations
-
-- [x] Automatically finding `devcontainer.json` files as per the spec
-- [x] Supports specifying a path for a `devcontainer.json` through a command-line parameter, if your config doesn't conform to the expected naming
-- [x] Specifying the socket address to use to connect to the container daemon, in case `brig` can't find it automatically
-
-### Parsing and validation
-
-- [x] Validation of the target `devcontainer.json` file against the official spec
-
-### Basic container operations
-
-- [x] Pulling the image specified `image` field from remote registries
-- [x] Building an image based on the `dockerFile` field, targeting the value of the `context` field
-- [x] Creating a container based on the image it builds
-- [x] Attaching the terminal to the container
-  - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
-- [x] (_Very_) basic support for forwarding ports; see additional notes [re: privilege elevation](#elevation-for-port-bindings) and [re: forwarding methods](appport-vs-forwardports).
-
-### devcontainer-specific features
-
-- [x] Specifying a different UID to use inside the devcontainer via the ~~`remoteUser`~~ `containerUser` field (fixed as of [ed8e31b](commit/ed8e31ba4023eab3ab618675757b833e2425c978))
-- [x] Specifying kernel capabilities to add to the container via the `capAdd` field
-- [x] Specifying that the container should run in privileged mode via the `privileged` field
-- [x] Special environment variables (`containerWorkspaceFolder`, `localEnv`, etc.) work!
-  - Okay, they _partially_ work: `${containerEnv:*}` is a work in progress
-- [x] Variable expansion (e.g., `${env:UNDEF_VAR:-default}` returns "default" if `UNDEF_VAR` doesn't exist)
-- [x] Mounting volumes as specified by the `mounts` field
-  - [x] Using variables and variable expansion in `mounts` items work as expected
-
-### Useful extras
-
-Variable expansions go a little farther than what's available in the devcontainer spec: You can even do some other shell-inspired things with them, as long as they're supported by the [mvdan.cc/sh/v3](https://github.com/mvdan/sh) package. For examples of what operations are supported, refer to [writ/writ_test.go](writ/writ_test.go).
-
-Check out [Bash's Shell Parameter Expansion](https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html) to get an idea of what you can do. Just be aware that not all of them will be supported, or even make sense in this context.
-
-That said, _being able to_ doesn't mean you _should_, as relying on features outside of the devcontainer spec will necessarily mean you'll be sacrificing interoperability.
+- vs. **[devcontainers/cli](https://github.com/devcontainers/cli)**: As the reference implementation, the official command-line tool implements all the features of the spec, but requires the Node.js runtime. `brig` is a compiled Go binary, making it faster to deploy and simpler to manage.
+- vs. **[UPwith-me/Container-Maker](https://github.com/UPwith-me/Container-Maker)**: `cm` implements features that are tangential to the core devcontainer workflow; while the bells and whistles are nice (and very impressive), I prefer a tool more aligned to the Unix philosophy.
 
 ## Incompatibilities
 
-These are the known incompatibilities with the way Visual Studio Code and/or the official devcontainer command-line tool works. They _may_ change in the future, depending on patches or changes in my preferred workflow.
-
-### Ephemeral containers
-
-I like my devcontainers ephemeral and pretty much stateless. On the other hand, Visual Studio Code (and possibly the official command-line tool) keeps around stopped containers and just restarts them on subsequent usage.
-
-The spec, to my knowledge, doesn't mandate that stopped containers be kept around; it's _implied_ (see the values for the `shutdownAction` field), but I haven't (yet?) come across anything in the way devcontainers work that would necessitate keeping stopped containers around, so I just wrote `brig` to conform to my preferences.
-
-### No dedicated build step
-
-Related to the previous point. I also prefer that changes to the devcontainers take effect immediately the next time I open it, as opposed to having to explicitly initiate a rebuild.
-
-I realize that larger codebases would likely benefit from a build-only step, as well as persistent containers: a <100MB codebase I work with that pulls a couple of >1GB images during building takes about 16 seconds from running `brig` to the prompt being ready, and that's with the image already having been built.
-
-However, I've found in practice that it's not necessarily an issue, as I spin up the devcontainer in a terminal and immediately switch back to Emacs to resume working.
-
-For what it's worth, I'm not _opposed_ to having a dedicated build step; I'm just not convinced of its necessity, and I'm wary of what I perceive would be a penalty to my workflow.
+These are the known differences with the observed behavior of Visual Studio Code and/or the official devcontainer command-line tool.
 
 ### Port Management & Networking
 
@@ -159,12 +88,20 @@ For what it's worth, I'm not _opposed_ to having a dedicated build step; I'm jus
 
 For a detailed technical explanation of these design choices, see [docs/ports.md](docs/ports.md).
 
+### Ephemeral containers
+
+`brig` treats devcontainers as ephemeral, unlike Visual Studio Code (and possibly the official command-line tool), which keeps stopped containers to start later.
+
+This aligns with the "cattle, not pets" philosophy for development environments, and encourages devcontainers to be stateless and replicatable.
+
+### No dedicated build step
+
+Changes to `devcontainer.json` take effect immediately on the next run. There is no separate "Rebuild Container" step required; just run `brig` again.
+
 ### No runArgs support
 
-The devcontainer spec defines a field named `runArgs`. It's an array of command line parameters to pass to Docker when running the container. I think the intent is to allow passing args that aren't covered by other fields.
+The `runArgs` field (arbitrary Docker CLI flags) is not supported because `brig` interacts with the engine via the REST API. Direct API equivalents (where applicable) are implemented via specific fields (like `capAdd`) instead.
 
-It's commendable: it ensures that the spec doesn't have to cover _all_ use-cases, and permits integrating devcontainer usage in workflows the spec authors can't even imagine.
+---
 
-However, owing to the fact that `brig` communicates with Podman and Docker via their REST API, I don't see a way of directly supporting `runArgs` aside from parsing each entry and trying to translate parameters into their API equivalents (if any).
-
-All this to say, I don't see `brig` ever supporting `runArgs`, barring a major architectural change.
+_Originally written because I'm an Emacs and podman user and don't want to have to deal with Node.js._
