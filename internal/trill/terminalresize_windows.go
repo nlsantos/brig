@@ -21,6 +21,7 @@ package trill
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -35,14 +36,15 @@ func (c *Client) listenForTerminalResize() {
 
 		fd := int(os.Stdout.Fd())
 		if !term.IsTerminal(fd) {
-			fmt.Println("not a terminal")
+			slog.Debug("not a terminal", "fd", fd)
 			return
 		}
 
 		for range ticker.C {
 			w, h, err := term.GetSize(fd)
 			if err != nil {
-				panic(err)
+				slog.Error("could not get terminal's size", "error", err)
+				return
 			}
 			c.ResizeContainer(uint(h), uint(w)) // #nosec G115
 		}

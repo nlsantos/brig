@@ -20,6 +20,7 @@
 package trill
 
 import (
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,10 +37,12 @@ func (c *Client) listenForTerminalResize() {
 		for range resizeCh {
 			fd := int(os.Stdin.Fd())
 			if !term.IsTerminal(fd) {
+				slog.Debug("not a terminal", "fd", fd)
 				return
 			}
 			w, h, err := term.GetSize(fd)
 			if err != nil {
+				slog.Error("could not get terminal's size", "error", err)
 				return
 			}
 			c.ResizeContainer(uint(h), uint(w)) // #nosec G115
