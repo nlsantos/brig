@@ -351,7 +351,11 @@ func (p *Parser) standardizeJSON() ([]byte, error) {
 		slog.Error("failed to open devcontainer.json", "error", err, "path", p.Filepath)
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			slog.Error("could not close JSON file while standardizing", "error", err)
+		}
+	}()
 
 	fileInput, err := io.ReadAll(file)
 	if err != nil {
