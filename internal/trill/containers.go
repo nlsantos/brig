@@ -225,7 +225,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	}
 }
 
-// SetInitialiContainerSize sets up the height and width of the
+// SetInitialContainerSize sets up the height and width of the
 // container's pseudo-TTY, as well a hook to ensure that future
 // changes in the host terminal's dimensions are propageted to the
 // container.
