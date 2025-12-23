@@ -1,3 +1,4 @@
 dist/
+megalinter-reports/
 
 .histfile
