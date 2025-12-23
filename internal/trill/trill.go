@@ -18,6 +18,8 @@
 package trill
 
 import (
+	"log/slog"
+
 	mobyclient "github.com/moby/moby/client"
 )
 
@@ -42,7 +44,11 @@ func NewClient(socketAddr string, makeMeRoot bool) *Client {
 
 	if mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr)); err == nil {
 		c.MobyClient = mobyClient
-		defer c.MobyClient.Close()
+		defer func() {
+			if err := c.MobyClient.Close(); err != nil {
+				slog.Error("could not close Moby client", "error", err)
+			}
+		}()
 	} else {
 		panic(err)
 	}
