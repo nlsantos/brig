@@ -1,3 +1,19 @@
+/*
+   writ: a devcontainer.json parser
+   Copyright (C) 2025  Neil Santos
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+*/
+
+// Package writ houses a validating parser for devcontainer.json files
 package writ
 
 import (
@@ -7,7 +23,7 @@ import (
 	"strings"
 )
 
-// Custom unmarshaller for the AppPort type
+// UnmarshalJSON for the AppPort type
 func (a *AppPort) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-start
 	if len(data) < 1 {
@@ -43,7 +59,7 @@ func (a *AppPort) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-end
 }
 
-// Custom unmarshaller for the ForwardPort type
+// UnmarshalJSON for the ForwardPort type
 func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-start
 	if len(data) < 1 {
@@ -79,7 +95,7 @@ func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-end
 }
 
-// Custom unmarshaller for the MountElement type
+// UnmarshalJSON for the MountElement type
 //
 // Because of this unmarshaller, a MountElement should never have its
 // String field be non-nil with a valid decontainer.json file
@@ -105,7 +121,7 @@ func (m *MountElement) UnmarshalJSON(data []byte) error {
 		case "target":
 			m.Mount.Target = splitSegment[1]
 		case "type":
-			m.Mount.Type = Type(strings.ToLower(splitSegment[1]))
+			m.Mount.Type = MountType(strings.ToLower(splitSegment[1]))
 		default:
 			slog.Debug("ignoring unknown mount directive", "key", splitSegment[0], "value", splitSegment[1])
 		}

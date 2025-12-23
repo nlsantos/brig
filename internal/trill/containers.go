@@ -13,6 +13,8 @@
    GNU General Public License for more details.
 */
 
+// Package trill houses a thin wrapper for communicating with podman
+// and Docker via their REST API.
 package trill
 
 import (
@@ -38,7 +40,8 @@ import (
 	"golang.org/x/term"
 )
 
-// Build the OCI image to be used by the devcontainer.
+// BuildContainerImage builds the OCI image to be used by the
+// devcontainer.
 //
 // Requires metadata parsed from a devccontainer.json configuration
 // file and a tag to apply to the built OCI image.
@@ -108,8 +111,8 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 	}
 }
 
-// Pull the OCI image from a remtoe registry to be used by the
-// devcontainer.
+// PullContainerImage pulls the OCI image from a remtoe registry so it
+// can be used in the creation of a devcontainer.
 //
 // TODO: Implement a privilege function to support authentication so
 // images can be pulled from private repositories
@@ -135,7 +138,8 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
 	}
 }
 
-// Start a container and attach to it to enable its usage.
+// StartContainer starts an existing container and attaches the
+// current terminal to it to enable its usage.
 //
 // Requires metadata parsed from a devcontainer.json config, the
 // tag/image name for the OCI image to use as base, and a name for the
@@ -335,11 +339,8 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	slog.Debug("detached from container", "id", c.ContainerID)
 }
 
-// Resize the container's internal pseudo-TTY based on the current
-// terminal's properties.
-//
-// Does nothing if stdin isn't a terminal, and panics if it encounters
-// an error attempting to resize the pseudo-TTY.
+// ResizeContainer sets the container's internal pseudo-TTY height and
+// width to the passed in values.
 func (c *Client) ResizeContainer(h uint, w uint) {
 	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
 		Height: h,
@@ -349,7 +350,8 @@ func (c *Client) ResizeContainer(h uint, w uint) {
 	}
 }
 
-// Build a list of files to be excluded in the creation of the context tarball.
+// buildContextExcludesList builds a list of files to be excluded in
+// the creation of the context tarball.
 //
 // Requires ctxDir, the path of the context directory to search
 // .containerignore/.dockerignore in.
@@ -385,7 +387,7 @@ func buildContextExcludesList(ctxDir string) []string {
 	return excludes
 }
 
-// Gather the context directory into a tarball.
+// buildContextArchive gathers the context directory into a tarball.
 //
 // Creates a tarball rooted at ctxDir and returns the path to the
 // created file if successful. If any errors are encountered, returns

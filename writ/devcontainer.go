@@ -1,10 +1,27 @@
+/*
+   writ: a devcontainer.json parser
+   Copyright (C) 2025  Neil Santos
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+*/
+
+// Package writ houses a validating parser for devcontainer.json files
 package writ
 
 // Generated using https://app.quicktype.io/ against
 // https://raw.githubusercontent.com/devcontainers/spec/d424cc157e9a110f3bf67d311b46c7306d5a465d/schemas/devContainer.base.schema.json;
 // DO NOT EDIT MANUALLY
 
-// Defines a dev container
+// DevcontainerConfig represents the contents of a devcontainer.json
+// file.
 type DevcontainerConfig struct {
 	// Docker build-related options.
 	Build *BuildOptions `json:"build,omitempty"`
@@ -134,7 +151,7 @@ type DevcontainerConfig struct {
 	WaitFor *WaitFor `json:"waitFor,omitempty"`
 }
 
-// Docker build-related options.
+// BuildOptions represents Docker build-related options.
 type BuildOptions struct {
 	// The location of the context folder for building the Docker image. The path is relative to
 	// the folder containing the `devcontainer.json` file.
@@ -152,7 +169,8 @@ type BuildOptions struct {
 	Target *string `json:"target,omitempty"`
 }
 
-// Features to add to the dev container.
+// Features represent additional functionality that's bolted onto a
+// devcontainer.
 type Features struct {
 	Fish       interface{} `json:"fish,omitempty"`
 	Gradle     interface{} `json:"gradle,omitempty"`
@@ -161,7 +179,8 @@ type Features struct {
 	Maven      interface{} `json:"maven,omitempty"`
 }
 
-// Host hardware requirements.
+// HostRequirements represent hardware requirements of the
+// devcontainer.
 type HostRequirements struct {
 	// Number of required CPUs.
 	Cpus *int64    `json:"cpus,omitempty"`
@@ -172,8 +191,26 @@ type HostRequirements struct {
 	Storage *string `json:"storage,omitempty"`
 }
 
-// Indicates whether a GPU is required. The string "optional" indicates that a GPU is
-// optional. An object value can be used to configure more detailed requirements.
+// GPUUnion is a union struct to represent possible input for the GPU
+// configuration.
+type GPUUnion struct {
+	Bool     *bool
+	Enum     *GPUEnum
+	GPUClass *GPUClass
+}
+
+// GPUEnum represents the possible string values for the field
+type GPUEnum string
+
+// Supported values for GPUEnum
+const (
+	Optional GPUEnum = "optional"
+)
+
+// GPUClass indicates whether a GPU is required.
+//
+// The string "optional" indicates that a GPU is optional. An object
+// value can be used to configure more detailed requirements.
 type GPUClass struct {
 	// Number of required cores.
 	Cores *int64 `json:"cores,omitempty"`
@@ -181,15 +218,33 @@ type GPUClass struct {
 	Memory *string `json:"memory,omitempty"`
 }
 
+// MountElement represents individual entries in the mount field
+type MountElement struct {
+	Mount  *Mount
+	String *string
+}
+
+// Mount represents an entry in the mount field structured as an object.
 type Mount struct {
 	// Mount source.
 	Source string `json:"source,omitempty"`
 	// Mount target.
 	Target string `json:"target"`
 	// Mount type.
-	Type Type `json:"type"`
+	Type MountType `json:"type"`
 }
 
+// MountType specifies the type of mount a mount entry should be.
+type MountType string
+
+// Supported values for MountTYpe
+const (
+	Bind   MountType = "bind"
+	Volume MountType = "volume"
+)
+
+// PortAttributes represent configuration that should be applied to a
+// port binding specified in forwardPorts.
 type PortAttributes struct {
 	// Automatically prompt for elevation (if needed) when this port is forwarded. Elevate is
 	// required if the local port is a privileged port.
@@ -203,28 +258,17 @@ type PortAttributes struct {
 	RequireLocalPort *bool     `json:"requireLocalPort,omitempty"`
 }
 
-// Recommended secrets for this dev container. Recommendations are provided as environment
-// variable keys with optional metadata.
+// Secrets represent recommended secrets for this dev
+// container. Recommendations are provided as environment variable
+// keys with optional metadata.
 type Secrets struct {
 }
 
-type GPUEnum string
-
-const (
-	Optional GPUEnum = "optional"
-)
-
-// Mount type.
-type Type string
-
-const (
-	Bind   Type = "bind"
-	Volume Type = "volume"
-)
-
-// Defines the action that occurs when the port is discovered for automatic forwarding
+// OnAutoForward defines the action that occurs when the port is
+// discovered for automatic forwarding
 type OnAutoForward string
 
+// Supported values for OnAutoForward
 const (
 	Ignore      OnAutoForward = "ignore"
 	Notify      OnAutoForward = "notify"
@@ -233,30 +277,36 @@ const (
 	Silent      OnAutoForward = "silent"
 )
 
-// The protocol to use when forwarding this port.
+// Protocol specifies the protocol to use when forwarding a given port.
 type Protocol string
 
+// Supported values for Protocol
 const (
 	HTTP  Protocol = "http"
 	HTTPS Protocol = "https"
 )
 
-// Action to take when the user disconnects from the container in their editor. The default
-// is to stop the container.
+// ShutdownAction represents the action to take when the user
+// disconnects from the container in their editor. The default is to
+// stop the container.
 //
 // Action to take when the user disconnects from the primary container in their editor. The
 // default is to stop all of the compose containers.
 type ShutdownAction string
 
+// Supported values for ShutdownAction
 const (
 	ShutdownActionNone ShutdownAction = "none"
 	StopCompose        ShutdownAction = "stopCompose"
 	StopContainer      ShutdownAction = "stopContainer"
 )
 
-// User environment probe to run. The default is "loginInteractiveShell".
+// UserEnvProbe specifies the environment probe to run.
+//
+// The default is "loginInteractiveShell".
 type UserEnvProbe string
 
+// Suppported values for UserEnvProbe
 const (
 	InteractiveShell      UserEnvProbe = "interactiveShell"
 	LoginInteractiveShell UserEnvProbe = "loginInteractiveShell"
@@ -264,10 +314,13 @@ const (
 	UserEnvProbeNone      UserEnvProbe = "none"
 )
 
-// The user command to wait for before continuing execution in the background while the UI
-// is starting up. The default is "updateContentCommand".
+// WaitFor represents the user command to wait for before continuing
+// execution in the background while the UI is starting up.
+//
+// The default is "updateContentCommand".
 type WaitFor string
 
+// Supported values for WaitFor
 const (
 	InitializeCommand    WaitFor = "initializeCommand"
 	OnCreateCommand      WaitFor = "onCreateCommand"
@@ -276,13 +329,16 @@ const (
 	UpdateContentCommand WaitFor = "updateContentCommand"
 )
 
-// Application ports that are exposed by the container. This can be a single port or an
-// array of ports. Each port can be a number or a string. A number is mapped to the same
-// port on the host. A string is passed to Docker unchanged and can be used to map ports
-// differently, e.g. "8000:8010".
+// AppPort is a list of ports that are exposed by the container.
+//
+// This can be a single port or an array of ports. Each port can be a
+// number or a string. A number is mapped to the same port on the
+// host. A string is passed to Docker unchanged and can be used to map
+// ports differently, e.g. "8000:8010".
 type AppPort []string
 
-// The image to consider as a cache. Use an array to specify multiple images.
+// CacheFrom specifies the image to consider as a cache. Use an array
+// to specify multiple images.
 //
 // The name of the docker-compose file(s) used to start the services.
 type CacheFrom struct {
@@ -290,52 +346,22 @@ type CacheFrom struct {
 	StringArray []string
 }
 
+// ForwardPorts is an array of port numbers that are forwarded from
+// the container to the local machine.
+//
+// Can be an integer port number, or a string of the format
+// "host:port_number".
 type ForwardPorts []string
 
-type GPUUnion struct {
-	Bool     *bool
-	Enum     *GPUEnum
-	GPUClass *GPUClass
-}
-
-// A command to run locally (i.e Your host machine, cloud VM) before anything else. This
-// command is run before "onCreateCommand". If this is a single string, it will be run in a
-// shell. If this is an array of strings, it will be run as a single command without shell.
-// If this is an object, each provided command will be run in parallel.
+// Command represents the command to run locally (i.e Your host
+// machine, cloud VM) before anything else.
 //
-// A command to run when creating the container. This command is run after
-// "initializeCommand" and before "updateContentCommand". If this is a single string, it
-// will be run in a shell. If this is an array of strings, it will be run as a single
-// command without shell. If this is an object, each provided command will be run in
-// parallel.
-//
-// A command to run when attaching to the container. This command is run after
-// "postStartCommand". If this is a single string, it will be run in a shell. If this is an
-// array of strings, it will be run as a single command without shell. If this is an object,
-// each provided command will be run in parallel.
-//
-// A command to run after creating the container. This command is run after
-// "updateContentCommand" and before "postStartCommand". If this is a single string, it will
-// be run in a shell. If this is an array of strings, it will be run as a single command
-// without shell. If this is an object, each provided command will be run in parallel.
-//
-// A command to run after starting the container. This command is run after
-// "postCreateCommand" and before "postAttachCommand". If this is a single string, it will
-// be run in a shell. If this is an array of strings, it will be run as a single command
-// without shell. If this is an object, each provided command will be run in parallel.
-//
-// A command to run when creating the container and rerun when the workspace content was
-// updated while creating the container. This command is run after "onCreateCommand" and
-// before "postCreateCommand". If this is a single string, it will be run in a shell. If
-// this is an array of strings, it will be run as a single command without shell. If this is
-// an object, each provided command will be run in parallel.
+// This command is run before "onCreateCommand". If this is a single
+// string, it will be run in a shell. If this is an array of strings,
+// it will be run as a single command without shell.  If this is an
+// object, each provided command will be run in parallel.
 type Command struct {
 	String      *string
 	StringArray []string
 	UnionMap    map[string]*CacheFrom
-}
-
-type MountElement struct {
-	Mount  *Mount
-	String *string
 }
