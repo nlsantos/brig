@@ -62,9 +62,11 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 		panic(err)
 	}
 	defer func() {
-		contextArchive.Close()
-		if errDefer := os.Remove(contextArchive.Name()); errDefer != nil {
-			slog.Error("failed cleaning up context archive", "path", contextArchive.Name(), "error", errDefer)
+		if err := contextArchive.Close(); err != nil {
+			slog.Error("could not close context archive", "path", contextArchive.Name(), "error", err)
+		}
+		if err := os.Remove(contextArchive.Name()); err != nil {
+			slog.Error("failed cleaning up context archive", "path", contextArchive.Name(), "error", err)
 		}
 	}()
 
@@ -81,7 +83,11 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 	if err != nil {
 		panic(err)
 	}
-	defer buildResp.Body.Close()
+	defer func() {
+		if err := buildResp.Body.Close(); err != nil {
+			slog.Error("could not close build response", "error", err)
+		}
+	}()
 
 	if suppressOutput {
 		fmt.Println("Building image and starting container...")
@@ -123,7 +129,11 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
 	if err != nil {
 		panic(err)
 	}
-	defer pullResp.Close()
+	defer func() {
+		if err := pullResp.Close(); err != nil {
+			slog.Error("could not close pull response", "error", err)
+		}
+	}()
 
 	if suppressOutput {
 		if err := pullResp.Wait(context.Background()); err != nil {
@@ -146,10 +156,142 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
 // created container.
 func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string) {
 	slog.Debug("attempting to start and attach to container based on tag", "tag", tag)
+	containerCfg := c.buildContainerConfig(p, tag)
+	hostCfg := c.buildHostConfig(p)
+
+	if err := c.bindAppPorts(p, containerCfg, hostCfg); err != nil {
+		slog.Error("encountered an error binding appPorts items", "error", err)
+		panic(err)
+	}
+	if err := c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
+		slog.Error("encountered an error binding forwardPorts items", "error", err)
+		panic(err)
+	}
+	c.bindMounts(p, hostCfg)
+
+	ctx := context.Background()
+	createResp, err := c.MobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
+		Config:     containerCfg,
+		HostConfig: hostCfg,
+		Name:       containerName,
+	})
+	if err != nil {
+		slog.Error("encountered an error creating a container", "error", err)
+		panic(err)
+	}
+	c.ContainerID = createResp.ID
+	slog.Debug("container created successfully", "id", c.ContainerID)
+
+	// Attaching to a container before it even starts is a way to get
+	// around possibly missing a log replay upon attachment. A symptom
+	// of that is needing to input something after the container is
+	// attached to, to get, say, the shell prompt to appear.
+	slog.Debug("attempting to attach to container", "id", c.ContainerID)
+	attachResp, err := c.MobyClient.ContainerAttach(ctx, c.ContainerID, mobyclient.ContainerAttachOptions{
+		Logs:   true,
+		Stderr: true,
+		Stdin:  true,
+		Stdout: true,
+		Stream: true,
+	})
+	if err != nil {
+		slog.Error("encountered an error attaching to the container", "error", err)
+		panic(err)
+	}
+	slog.Debug("successfully attached to container", "id", c.ContainerID)
+	defer attachResp.Close()
+
+	restoreTerm, err := c.switchTerminalToRaw()
+	if err != nil {
+		panic(err)
+	}
+	defer restoreTerm()
+
+	waitFunc := c.attachHostTerminalToContainer(&attachResp)
+
+	slog.Debug("attempting to start container", "id", c.ContainerID)
+	// TODO: Support the container initialization options/operations
+	// exposed by the devcontainer spec
+	if _, err := c.MobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
+		slog.Error("encountered an error while trying to start the container", "error", err)
+	} else {
+		// Note that Docker apparently doesn't like resizing containers
+		// until after it's started (Podman seems to be fine with it).
+		c.SetInitialContainerSize()
+		slog.Debug("container started successfully", "id", c.ContainerID)
+
+		waitFunc()
+		slog.Debug("detached from container", "id", c.ContainerID)
+	}
+}
+
+// SetInitialiContainerSize sets up the height and width of the
+// container's pseudo-TTY, as well a hook to ensure that future
+// changes in the host terminal's dimensions are propageted to the
+// container.
+//
+// Also, on Windows, it's apparently more reliable to get the terminal size
+// from stdout, as using stdin results in an invalid handle error.
+func (c *Client) SetInitialContainerSize() {
+	slog.Debug("attempting to resize container's pseudo-TTY")
+	w, h, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		slog.Error("encountered an error trying to get ther terminal's dimensions", "error", err)
+		panic(err)
+	}
+
+	c.ResizeContainer(uint(h), uint(w)) // #nosec G115
+	slog.Debug("setting up hooks to handle terminal resizing")
+	c.listenForTerminalResize()
+}
+
+// ResizeContainer sets the container's internal pseudo-TTY height and
+// width to the passed in values.
+func (c *Client) ResizeContainer(h uint, w uint) {
+	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
+		Height: h,
+		Width:  w,
+	}); err != nil {
+		panic(err)
+	}
+}
+
+// attachHostTerminalToContainer attempts to route input from the
+// terminal into the container's pseudo-TTY, and redirect the
+// pseudo-TTY's output to the host terminal.
+//
+// Uses attachResp to facilitate the rerouting.
+//
+// This allows usage of the container in a terminal as one would,
+// e.g., a regular shell
+func (c *Client) attachHostTerminalToContainer(attachResp *mobyclient.ContainerAttachResult) func() {
+	slog.Debug("setting up terminal input/output")
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := io.Copy(os.Stdout, attachResp.Reader); err != nil {
+			slog.Error("encountered an error copying container output to stdout", "error", err)
+		}
+	}()
+	go func() {
+		if _, err := io.Copy(attachResp.Conn, os.Stdin); err != nil {
+			panic(err)
+		}
+	}()
+
+	return wg.Wait
+}
+
+// buildContainerConfig initializes and returns a Moby
+// container.Config struct for later use with containers.
+func (c *Client) buildContainerConfig(p *writ.Parser, tag string) *container.Config {
+	slog.Debug("building the container configuration")
 	containerEnvs := []string{}
 	for key, val := range p.Config.ContainerEnv {
 		containerEnvs = append(containerEnvs, fmt.Sprintf("%s=%s", key, val))
 	}
+
 	containerCfg := container.Config{
 		Env:          containerEnvs,
 		ExposedPorts: make(network.PortSet),
@@ -158,16 +300,25 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		Tty:          true,
 		WorkingDir:   *p.Config.WorkspaceFolder,
 	}
+
 	if p.Config.RemoteUser != nil {
 		containerCfg.User = *p.Config.ContainerUser
 	}
+
 	slog.Debug("using container config", "config", containerCfg)
+	return &containerCfg
+}
+
+// buildHostConfig initializes and returns a Moby container.HostConfig
+// struct for later use with containers.
+func (c *Client) buildHostConfig(p *writ.Parser) *container.HostConfig {
 	hostCfg := container.HostConfig{
 		AutoRemove: true,
 		Binds: []string{
 			// By default, the context is mounted as the workspace folder
 			fmt.Sprintf("%s:%s", *p.Config.Context, *p.Config.WorkspaceFolder),
 		},
+		CapAdd:       p.Config.CapAdd,
 		PortBindings: make(network.PortMap),
 		Privileged:   *p.Config.Privileged,
 	}
@@ -176,16 +327,23 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
 	}
 
-	if p.Config.CapAdd != nil {
-		hostCfg.CapAdd = p.Config.CapAdd
-	}
+	return &hostCfg
+}
 
-	// This is very simplistic and will break in a multi-container
-	// (i.e., Compose) environment
+// bindAppPorts sets up the struct fields necessary to bind the ports
+// in appPorts on the host machine.
+//
+// Requires containerCfg and hostCfg to be pointers to their
+// respective structs.
+//
+// TODO: Enhance this as this is very simplistic and will break in a
+// multi-container (i.e., Compose) environment
+func (c *Client) bindAppPorts(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig) error {
 	if p.Config.AppPort != nil && len(*p.Config.AppPort) > 0 {
 		exposedPorts, portMap, err := nat.ParsePortSpecs(*p.Config.AppPort)
 		if err != nil {
 			slog.Error("error parsing appPort", "appPort", *p.Config.AppPort, "error", err)
+			return err
 		}
 
 		for port, set := range exposedPorts {
@@ -208,31 +366,44 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		}
 	}
 
-	// TODO: Add a brig option to specify that ports in forwardPort
-	// should listen on 0.0.0.0 instead of 127.0.0.1
-	if len(p.Config.ForwardPorts) > 0 {
-		for _, forwardPort := range p.Config.ForwardPorts {
-			if containerCfg.ExposedPorts == nil {
-				containerCfg.ExposedPorts = make(network.PortSet)
-			}
-			if hostCfg.PortBindings == nil {
-				hostCfg.PortBindings = make(network.PortMap)
-			}
-			port, err := network.ParsePort(forwardPort)
-			if err != nil {
-				slog.Error("cannot parse forward port", "port", forwardPort, "error", err)
-				panic(err)
-			}
-			containerCfg.ExposedPorts[port] = struct{}{}
-			hostCfg.PortBindings[port] = []network.PortBinding{
-				{
-					HostIP:   netip.MustParseAddr("127.0.0.1"),
-					HostPort: forwardPort,
-				},
-			}
+	return nil
+}
+
+// bindForwardPorts sets up the struct fields necessary to bind the
+// ports in forwardPorts on the host machine.
+//
+// Requires containerCfg and hostCfg to be pointers to their
+// respective structs.
+//
+// TODO: Add a brig option to specify that ports in forwardPort
+// should listen on 0.0.0.0 instead of 127.0.0.1
+func (c *Client) bindForwardPorts(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig) error {
+	if len(p.Config.ForwardPorts) < 1 {
+		return nil
+	}
+
+	for _, forwardPort := range p.Config.ForwardPorts {
+		port, err := network.ParsePort(forwardPort)
+		if err != nil {
+			slog.Error("cannot parse forward port", "port", forwardPort, "error", err)
+			return err
+		}
+		containerCfg.ExposedPorts[port] = struct{}{}
+		hostCfg.PortBindings[port] = []network.PortBinding{
+			{
+				HostIP:   netip.MustParseAddr("127.0.0.1"),
+				HostPort: forwardPort,
+			},
 		}
 	}
 
+	return nil
+}
+
+// bindMounts sets up bind and/or volume mounts.
+//
+// Requires hostCfg to its respective struct.
+func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
 	if len(p.Config.Mounts) > 0 {
 		var mounts = []mount.Mount{}
 		for _, mountEntry := range p.Config.Mounts {
@@ -249,104 +420,6 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 			mounts = append(mounts, mountItem)
 		}
 		hostCfg.Mounts = mounts
-	}
-	slog.Debug("using host config", "config", hostCfg)
-	createOpts := mobyclient.ContainerCreateOptions{
-		Config:     &containerCfg,
-		HostConfig: &hostCfg,
-		Name:       containerName,
-	}
-
-	ctx := context.Background()
-	if resp, err := c.MobyClient.ContainerCreate(ctx, createOpts); err == nil {
-		c.ContainerID = resp.ID
-	} else {
-		panic(err)
-	}
-	slog.Debug("container created successfully", "id", c.ContainerID)
-	// Attaching to a container before it even starts is a way to get
-	// around possibly missing a log replay upon attachment. A symptom
-	// of that is needing to input something after the container is
-	// attached to, to get, say, the shell prompt to appear.
-	slog.Debug("attempting to attach to container", "id", c.ContainerID)
-	attachOpts := mobyclient.ContainerAttachOptions{
-		Logs:   true,
-		Stderr: true,
-		Stdin:  true,
-		Stdout: true,
-		Stream: true,
-	}
-	resp, err := c.MobyClient.ContainerAttach(ctx, c.ContainerID, attachOpts)
-	if err != nil {
-		panic(err)
-	}
-	slog.Debug("successfully attached to container", "id", c.ContainerID)
-	defer resp.Close()
-	// Switching the terminal to raw mode ensures that input with
-	// control characters (e.g., Ctrl-D) get passed through to the
-	// container
-	slog.Debug("switching terminal to raw mode")
-	if fd := int(os.Stdin.Fd()); term.IsTerminal(fd) {
-		oldState, err := term.MakeRaw(fd)
-		if err != nil {
-			panic(err)
-		}
-		defer func() {
-			slog.Debug("restoring terminal state")
-			if err := term.Restore(fd, oldState); err != nil {
-				panic(err)
-			}
-		}()
-	}
-	// This allows usage of the container in a terminal as one would,
-	// e.g., a regular shell
-	slog.Debug("setting up terminal input/output")
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if _, err := io.Copy(os.Stdout, resp.Reader); err != nil {
-			slog.Error("encountered an error copying container output to stdout", "error", err)
-		}
-	}()
-	go func() {
-		if _, err := io.Copy(resp.Conn, os.Stdin); err != nil {
-			panic(err)
-		}
-	}()
-
-	slog.Debug("attempting to start container", "id", c.ContainerID)
-	// TODO: Support the container initialization options/operations
-	// exposed by the devcontainer spec
-	if _, err := c.MobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
-		panic(err)
-	}
-	// Resize the pseudo-TTY; Docker apparently doesn't like doing it until
-	// after the container is started.
-	//
-	// Also, on Windows, it's apparently more reliable to get the terminal size
-	// from stdout, as using stdin results in an invalid handle error.
-	slog.Debug("attempting to resize container's pseudo-TTY")
-	if w, h, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
-		c.ResizeContainer(uint(h), uint(w)) // #nosec G115
-		slog.Debug("setting up hooks to handle terminal resizing")
-		c.listenForTerminalResize()
-	} else {
-		slog.Error(fmt.Sprintf("%v", err))
-	}
-	slog.Debug("container started successfully", "id", c.ContainerID)
-	wg.Wait()
-	slog.Debug("detached from container", "id", c.ContainerID)
-}
-
-// ResizeContainer sets the container's internal pseudo-TTY height and
-// width to the passed in values.
-func (c *Client) ResizeContainer(h uint, w uint) {
-	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
-		Height: h,
-		Width:  w,
-	}); err != nil {
-		panic(err)
 	}
 }
 
@@ -378,7 +451,11 @@ func buildContextExcludesList(ctxDir string) []string {
 		slog.Error(fmt.Sprintf("error opening %s; %v", ignoreFile, err))
 		panic(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("could not close ignore file handle", "error", err)
+		}
+	}()
 
 	if excludes, err = ignorefile.ReadAll(f); err != nil {
 		slog.Error(fmt.Sprintf("error parsing %s; %v", ignoreFile, err))
@@ -405,7 +482,11 @@ func buildContextArchive(ctxDir string) (string, error) {
 	if err != nil {
 		panic(err)
 	}
-	defer tempFile.Close()
+	defer func() {
+		if err := tempFile.Close(); err != nil {
+			slog.Error("could not close tempfile", "error", err)
+		}
+	}()
 
 	tarOpts := &archive.TarOptions{
 		// Assign ownership of files to root so we don't run into
@@ -433,4 +514,34 @@ func buildContextArchive(ctxDir string) (string, error) {
 		return tempFile.Name(), err
 	}
 	return "", err
+}
+
+// switchTerminalToRaw attempts to switch the current terminal to raw
+// mode.
+//
+// If no errors are encountered, returns a function that restores the
+// previous state of the terminal.
+//
+// Switching the terminal to raw mode ensures that input with
+// control characters (e.g., Ctrl-D) get passed through to the
+// container
+func (c *Client) switchTerminalToRaw() (func(), error) {
+	slog.Debug("switching terminal to raw mode")
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return nil, fmt.Errorf("%#v is not a terminal", fd)
+	}
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		slog.Error("encountered an error while trying to switch terminal to raw mode", "error", err)
+		return nil, err
+	}
+
+	return func() {
+		slog.Debug("restoring terminal state")
+		if err := term.Restore(fd, oldState); err != nil {
+			slog.Error("encountered an error while trying to restore terminal state", "error", err)
+			panic(err)
+		}
+	}, nil
 }
