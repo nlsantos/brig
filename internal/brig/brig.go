@@ -50,6 +50,13 @@ const (
 // built by brig
 const ImageTagPrefix = "localhost/devc--"
 
+// PortElevationFactor is added to privileged port bindings when they
+// are encountered, in order to raise them past 1023
+//
+// e.g., if attempting to bind port 53 on the host, it will be
+// translated as (53 + PortElevationFactor) before binding.
+const PortElevationFactor uint16 = 8000
+
 // StandardDevcontainerJSONPatterns is a list of paths and globs where
 // devcontainer.json files could reside.
 //
@@ -78,14 +85,15 @@ var VersionText = heredoc.Doc(`
 type Command struct {
 	Arguments []string
 	Options   struct {
-		Help         options.Help  `getopt:"-h --help display help"`
-		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`
-		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
-		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
-		MakeMeRoot   bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
-		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
-		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
-		Version      bool          `getopt:"--version display version informaiton then exit"`
+		Help                options.Help  `getopt:"-h --help display this help message"`
+		Verbose             bool          `getopt:"-v --verbose enable diagnostic messages"`
+		Config              options.Flags `getopt:"-c --config=PATH path to rc file"`
+		Debug               bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		MakeMeRoot          bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
+		PortElevationFactor uint16        `getopt:"-f --port-factor=UINT number to increase privileged ports by"`
+		Socket              string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
+		ValidateOnly        bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
+		Version             bool          `getopt:"--version display version informaiton then exit"`
 	}
 
 	suppressOutput bool
@@ -124,6 +132,7 @@ func NewCommand(appName string, appVersion string) {
 	}
 
 	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
+	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	imageName := createImageTagBase(&parser)
 
 	var imageTag string
@@ -303,6 +312,13 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 		StringIndentation: true,
 	})))
 
+	if c.Options.PortElevationFactor == 0 {
+		c.Options.PortElevationFactor = PortElevationFactor
+	} else if c.Options.PortElevationFactor < 1024 {
+		slog.Error("port elevation factor must be >= 1024", "factor", c.Options.PortElevationFactor)
+		os.Exit(int(ExitUnsupportedConfiguration))
+	}
+
 	c.suppressOutput = logLevel.Level() > slog.LevelInfo
 
 	if c.Options.MakeMeRoot {
@@ -330,5 +346,11 @@ func (c *Command) setFlagsFile(appName string) {
 	}
 }
 
+// privilegedPortElevator is the function called by trill when
+// encountering privileged ports (ports numbered < 1024).
 //
+// Accepts port as input and returns a port number beyond the range of
+// privileged ports.
+func (c *Command) privilegedPortElevator(port uint16) uint16 {
+	return port + c.Options.PortElevationFactor
 }
