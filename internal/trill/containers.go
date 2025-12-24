@@ -214,6 +214,7 @@ func (c *Client) buildHostConfig(p *writ.Parser) *container.HostConfig {
 		hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
 	}
 
+	slog.Debug("using host config", "config", hostCfg)
 	return &hostCfg
 }
 
