@@ -23,11 +23,22 @@ import (
 	mobyclient "github.com/moby/moby/client"
 )
 
+// PrivilegedPortElevator is a function that Client can use to convert
+// privileged ports it encounters into non-privileged ports.
+//
+// It is passed the privileged port number and the return value is
+// used in the original port's stead.
+//
+// There is no check performed on the return value to see if it
+// actually produces a port number beyond the privileged port range.
+type PrivilegedPortElevator func(uint16) uint16
+
 // A Client holds metadata for communicating with Podman/Docker.
 type Client struct {
-	ContainerID string // The internal ID the API assigned to the created container
-	MakeMeRoot  bool   // If true, will ensure that the current user gets mapped as root inside the container
-	SocketAddr  string // The socket/named pipe used to communicate with the server
+	ContainerID            string                 // The internal ID the API assigned to the created container
+	PrivilegedPortElevator PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
+	MakeMeRoot             bool                   // If true, will ensure that the current user gets mapped as root inside the container
+	SocketAddr             string                 // The socket/named pipe used to communicate with the server
 
 	mobyClient *mobyclient.Client
 }

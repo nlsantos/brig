@@ -24,6 +24,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/docker/go-connections/nat"
@@ -235,7 +236,16 @@ func (c *Client) bindAppPorts(p *writ.Parser, containerCfg *container.Config, ho
 		}
 
 		for port, set := range exposedPorts {
-			containerCfg.ExposedPorts[network.MustParsePort(string(port))] = set
+			nativePort := network.MustParsePort(port.Port())
+			if nativePort.Num() < 1024 {
+				unprivilegedPort, ok := network.PortFrom(c.PrivilegedPortElevator(nativePort.Num()), nativePort.Proto())
+				if !ok {
+					return fmt.Errorf("could not convert privileged port into an unprivileged one: %#v", nativePort)
+				}
+				containerCfg.ExposedPorts[unprivilegedPort] = set
+			} else {
+			}
+			containerCfg.ExposedPorts[network.MustParsePort(port.Port())] = set
 		}
 
 		for port, bindings := range portMap {
@@ -243,14 +253,26 @@ func (c *Client) bindAppPorts(p *writ.Parser, containerCfg *container.Config, ho
 			for _, binding := range bindings {
 				hostIP := binding.HostIP
 				if len(hostIP) == 0 {
+					// Maybe make this configurable so ports can be exposed to beyond localhost?
 					hostIP = "127.0.0.1"
 				}
+
+				hostPort := network.MustParsePort(binding.HostPort)
+				if hostPort.Num() < 1024 {
+					unprivilegedPort, ok := network.PortFrom(c.PrivilegedPortElevator(hostPort.Num()), hostPort.Proto())
+					if !ok {
+						return fmt.Errorf("could not convert privileged appPorts into an unprivileged one: %#v", hostPort)
+					}
+					slog.Debug("converted a privileged appPorts to an unprivileged one", "old-port", hostPort.Num(), "new-port", unprivilegedPort.Num())
+					binding.HostPort = strconv.Itoa(int(unprivilegedPort.Num()))
+				}
+
 				portBindings = append(portBindings, network.PortBinding{
 					HostIP:   netip.MustParseAddr(hostIP),
 					HostPort: binding.HostPort,
 				})
 			}
-			hostCfg.PortBindings[network.MustParsePort(string(port))] = portBindings
+			hostCfg.PortBindings[network.MustParsePort(port.Port())] = portBindings
 		}
 	}
 
@@ -277,6 +299,19 @@ func (c *Client) bindForwardPorts(p *writ.Parser, containerCfg *container.Config
 			return err
 		}
 		containerCfg.ExposedPorts[port] = struct{}{}
+		portNum, err := strconv.Atoi(forwardPort)
+		if err != nil {
+			return err
+		}
+		if portNum < 1023 {
+			unprivilegedPort, ok := network.PortFrom(c.PrivilegedPortElevator(uint16(portNum)), network.TCP)
+			if !ok {
+				return fmt.Errorf("could not convert privileged forwardPorts into an unprivileged one: %#v", portNum)
+			}
+			slog.Debug("converted a privileged forwardPorts to an unprivileged one", "old-port", portNum, "new-port", unprivilegedPort.Num())
+			forwardPort = strconv.Itoa(int(unprivilegedPort.Num()))
+
+		}
 		hostCfg.PortBindings[port] = []network.PortBinding{
 			{
 				HostIP:   netip.MustParseAddr("127.0.0.1"),
