@@ -43,6 +43,7 @@ const (
 	ExitErrorParsingFlags
 	ExitNoDevcJSONFound
 	ExitTooManyDevJSONFound
+	ExitUnsupportedConfiguration
 )
 
 // ImageTagPrefix is the default prefix used for the tag of images
@@ -126,14 +127,20 @@ func NewCommand(appName string, appVersion string) {
 	imageName := createImageTagBase(&parser)
 
 	var imageTag string
-	if parser.Config.Image != nil && len(*parser.Config.Image) > 0 {
-		imageTag = *parser.Config.Image
-		slog.Debug("pulling image tag from remote registry", "tag", imageTag)
-		trillClient.PullContainerImage(imageTag, cmd.suppressOutput)
-	} else {
+	switch {
+	case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
 		imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
 		slog.Debug("building container image", "tag", imageTag)
 		trillClient.BuildContainerImage(&parser, imageTag, cmd.suppressOutput)
+
+	case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
+		imageTag = *parser.Config.Image
+		slog.Debug("pulling image tag from remote registry", "tag", imageTag)
+		trillClient.PullContainerImage(imageTag, cmd.suppressOutput)
+
+	default:
+		slog.Error("devcontainer.json specifies an unsupported mode of operation; exiting")
+		os.Exit(int(ExitUnsupportedConfiguration))
 	}
 
 	slog.Debug("starting devcontainer", "tag", imageTag, "name", imageName)
