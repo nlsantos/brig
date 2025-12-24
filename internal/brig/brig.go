@@ -25,8 +25,8 @@ import (
 	"strings"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/dusted-go/logging/v2/handlers/prettylog"
 	"github.com/go-git/go-git/v6"
+	"github.com/golang-cz/devslog"
 	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"github.com/pborman/options"
@@ -115,8 +115,14 @@ func NewCommand(appName string, appVersion string) {
 	default:
 		logLevel.Set(slog.LevelError)
 	}
-	slog.SetDefault(slog.New(prettylog.NewHandler(&slog.HandlerOptions{
-		Level: logLevel,
+	slog.SetDefault(slog.New(devslog.NewHandler(os.Stdout, &devslog.Options{
+		HandlerOptions: &slog.HandlerOptions{
+			AddSource: true,
+			Level:     logLevel,
+		},
+		NewLineAfterLog:   false,
+		SortKeys:          true,
+		StringIndentation: true,
 	})))
 	slog.Debug("command line parsed", "args", args)
 

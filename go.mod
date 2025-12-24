@@ -7,8 +7,8 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
-	github.com/dusted-go/logging/v2 v2.0.0-rc-05
 	github.com/go-git/go-git/v6 v6.0.0-20251212081956-e83cbb9651e8
+	github.com/golang-cz/devslog v0.0.15
 	github.com/moby/go-archive v0.1.0
 	github.com/moby/moby/api v1.52.0
 	github.com/moby/moby/client v0.2.1
