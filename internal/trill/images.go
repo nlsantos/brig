@@ -66,7 +66,7 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 
 	// TODO: Support more of the build options offered by the
 	// devcontainer spec
-	buildResp, err := c.MobyClient.ImageBuild(context.Background(), contextArchive, mobyclient.ImageBuildOptions{
+	buildResp, err := c.mobyClient.ImageBuild(context.Background(), contextArchive, mobyclient.ImageBuildOptions{
 		Context:        contextArchive,
 		Dockerfile:     *p.Config.DockerFile,
 		Remove:         true,
@@ -117,7 +117,7 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 // images can be pulled from private repositories
 func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
 	fmt.Printf("Pulling %s from remote registry...\n", tag)
-	pullResp, err := c.MobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{})
+	pullResp, err := c.mobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{})
 	if err != nil {
 		panic(err)
 	}

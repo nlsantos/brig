@@ -25,10 +25,11 @@ import (
 
 // A Client holds metadata for communicating with Podman/Docker.
 type Client struct {
-	ContainerID string
-	MakeMeRoot  bool
-	MobyClient  *mobyclient.Client
-	SocketAddr  string
+	ContainerID string // The internal ID the API assigned to the created container
+	MakeMeRoot  bool   // If true, will ensure that the current user gets mapped as root inside the container
+	SocketAddr  string // The socket/named pipe used to communicate with the server
+
+	mobyClient *mobyclient.Client
 }
 
 // NewClient returns a Client that's set to communicate with
@@ -43,9 +44,9 @@ func NewClient(socketAddr string, makeMeRoot bool) *Client {
 	}
 
 	if mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr)); err == nil {
-		c.MobyClient = mobyClient
+		c.mobyClient = mobyClient
 		defer func() {
-			if err := c.MobyClient.Close(); err != nil {
+			if err := c.mobyClient.Close(); err != nil {
 				slog.Error("could not close Moby client", "error", err)
 			}
 		}()

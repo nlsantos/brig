@@ -57,7 +57,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	c.bindMounts(p, hostCfg)
 
 	ctx := context.Background()
-	createResp, err := c.MobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
+	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
 		Config:     containerCfg,
 		HostConfig: hostCfg,
 		Name:       containerName,
@@ -74,7 +74,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	// of that is needing to input something after the container is
 	// attached to, to get, say, the shell prompt to appear.
 	slog.Debug("attempting to attach to container", "id", c.ContainerID)
-	attachResp, err := c.MobyClient.ContainerAttach(ctx, c.ContainerID, mobyclient.ContainerAttachOptions{
+	attachResp, err := c.mobyClient.ContainerAttach(ctx, c.ContainerID, mobyclient.ContainerAttachOptions{
 		Logs:   true,
 		Stderr: true,
 		Stdin:  true,
@@ -99,7 +99,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	slog.Debug("attempting to start container", "id", c.ContainerID)
 	// TODO: Support the container initialization options/operations
 	// exposed by the devcontainer spec
-	if _, err := c.MobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
+	if _, err := c.mobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
 		slog.Error("encountered an error while trying to start the container", "error", err)
 	} else {
 		// Note that Docker apparently doesn't like resizing containers
@@ -135,7 +135,7 @@ func (c *Client) SetInitialContainerSize() {
 // ResizeContainer sets the container's internal pseudo-TTY height and
 // width to the passed in values.
 func (c *Client) ResizeContainer(h uint, w uint) {
-	if _, err := c.MobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
+	if _, err := c.mobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
 		Height: h,
 		Width:  w,
 	}); err != nil {
