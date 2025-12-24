@@ -144,14 +144,14 @@ func (p *Parser) Parse() error {
 		return errors.New("devcontainer.json flagged invalid")
 	}
 
-	slog.Debug("attempting to unmarshal and parse devcontainer.json")
-	if err := json.Unmarshal(p.standardizedJSON, &p.Config); err != nil {
-		slog.Error("failed to unmarshal JSON", "path", p.Filepath, "error", err)
+	if err := p.setDefaultValues(); err != nil {
+		slog.Error("encountered an error while attempting to set default values", "error", err)
 		return err
 	}
 
-	if err := p.setDefaultValues(); err != nil {
-		slog.Error("encountered an error while attempting to set default values", "error", err)
+	slog.Debug("attempting to unmarshal and parse devcontainer.json")
+	if err := json.Unmarshal(p.standardizedJSON, &p.Config); err != nil {
+		slog.Error("failed to unmarshal JSON", "path", p.Filepath, "error", err)
 		return err
 	}
 
@@ -240,7 +240,7 @@ func (p *Parser) expandEnv(v string) string {
 func (p *Parser) normalizeValues() error {
 	slog.Debug("performing value normalization")
 
-	if p.Config.Context != nil && !filepath.IsAbs(*p.Config.Context) {
+	if !filepath.IsAbs(*p.Config.Context) {
 		// The value of context is relative (if it is relative) to the devcontainer.json
 		contextPath := filepath.Join(filepath.Dir(p.Filepath), *p.Config.Context)
 		slog.Debug("converting value to absolute path", "root/context", *p.Config.Context, "actual", contextPath)
@@ -263,8 +263,7 @@ func (p *Parser) normalizeValues() error {
 		slog.Debug("sorting out forwardPorts")
 		val := p.defaultValues["otherPortsAttributes"]
 		if defOtherPortsAttributes, ok := val.(PortAttributes); ok {
-			err := mergo.Merge(p.Config.OtherPortsAttributes, defOtherPortsAttributes)
-			if err != nil {
+			if err := mergo.Merge(p.Config.OtherPortsAttributes, defOtherPortsAttributes); err != nil {
 				slog.Error("unable to merge default values for otherPortsAttributes", "error", err)
 				return err
 			}
@@ -295,6 +294,24 @@ func (p *Parser) normalizeValues() error {
 		}
 	}
 
+	// Defaults to true for when using an image Dockerfile and false
+	// when referencing a Docker Compose file.
+	if p.Config.OverrideCommand == nil {
+		defOverride := p.Config.DockerComposeFile == nil
+		p.Config.OverrideCommand = &defOverride
+	}
+
+	// Basically, this only gets set to "none" if done so explcitly.
+	if p.Config.ShutdownAction == nil {
+		var defShutdownAction ShutdownAction
+		if p.Config.DockerComposeFile == nil {
+			defShutdownAction = StopContainer
+		} else {
+			defShutdownAction = StopCompose
+		}
+		p.Config.ShutdownAction = &defShutdownAction
+	}
+
 	return nil
 }
 
@@ -314,77 +331,31 @@ func (p *Parser) setDefaultValues() error {
 	// imeplementations are expected to behave as though it's set to
 	// "tcp"
 	defProtocol := Protocol("tcp")
+	defWorkspacePath := DefWorkspacePath
 
 	// Use the current working directory as context for builds if
 	// none is given
-	if p.Config.Context == nil {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		slog.Debug("no value given; using current working directory", "root/context", cwd)
+	if cwd, err := os.Getwd(); err != nil {
+		return err
+	} else {
 		p.Config.Context = &cwd
 	}
 
-	if p.Config.Init == nil {
-		p.Config.Init = &defFalse
-	}
-
-	// Defaults to true for when using an image Dockerfile and false
-	// when referencing a Docker Compose file.
-	if p.Config.OverrideCommand == nil {
-		defOverride := p.Config.DockerComposeFile == nil
-		p.Config.OverrideCommand = &defOverride
-	}
-
-	if p.Config.Privileged == nil {
-		p.Config.Privileged = &defFalse
-	}
-
-	// Basically, this only gets set to "none" if done so explcitly.
-	if p.Config.ShutdownAction == nil {
-		var defShutdownAction ShutdownAction
-		if p.Config.DockerComposeFile == nil {
-			defShutdownAction = StopContainer
-		} else {
-			defShutdownAction = StopCompose
-		}
-		p.Config.ShutdownAction = &defShutdownAction
-	}
-
-	// The spec states this defaults to true
-	if p.Config.UpdateRemoteUserUID == nil {
-		p.Config.UpdateRemoteUserUID = &defTrue
-	}
-
-	if p.Config.WorkspaceFolder == nil {
-		var defWorkspacePath = DefWorkspacePath
-		p.Config.WorkspaceFolder = &defWorkspacePath
-		slog.Debug("no value given; using current default value", "root/workspaceFolder", *p.Config.WorkspaceFolder)
-	}
-
-	p.defaultValues["otherPortsAttributes"] = PortAttributes{
+	defPortAttributes := PortAttributes{
 		Label:            nil,
 		Protocol:         &defProtocol,
 		OnAutoForward:    &defForwardNotify,
 		RequireLocalPort: &defFalse,
 		ElevateIfNeeded:  &defFalse,
 	}
+	p.defaultValues["otherPortsAttributes"] = defPortAttributes
 
-	if len(p.Config.ForwardPorts) > 0 {
-		// This needs to exist if forwardPorts isn't nil as it's used as a
-		// reference when setting them up
-		if p.Config.OtherPortsAttributes == nil {
-			val := p.defaultValues["otherPortsAttributes"]
-			if defOtherPortsAttributes, ok := val.(PortAttributes); ok {
-				p.Config.OtherPortsAttributes = &defOtherPortsAttributes
-			}
-		}
-
-		if len(p.Config.PortsAttributes) == 0 {
-			p.Config.PortsAttributes = map[string]PortAttributes{}
-		}
-	}
+	p.Config.Init = &defFalse
+	p.Config.OtherPortsAttributes = &defPortAttributes
+	p.Config.PortsAttributes = map[string]PortAttributes{}
+	p.Config.Privileged = &defFalse
+	p.Config.UpdateRemoteUserUID = &defTrue
+	p.Config.WorkspaceFolder = &defWorkspacePath
 
 	return nil
 }
