@@ -271,6 +271,9 @@ func findDevcontainerJSON(paths []string) string {
 // parseOptions parses the command-line options and parameters and
 // does a little housekeeping.
 func (c *Command) parseOptions(appName string, appVersion string) {
+	options.SetDisplayWidth(80)
+	options.SetHelpColumn(40)
+	options.SetParameters("<path-to-devcontainer.json>")
 	options.Register(&c.Options)
 	c.setFlagsFile(appName)
 	c.Arguments = options.Parse()
