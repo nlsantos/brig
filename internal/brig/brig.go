@@ -54,16 +54,29 @@ const ImageTagPrefix = "localhost/devc--"
 //
 // Based on
 // https://containers.dev/implementors/spec/#devcontainerjson; update
-// as necessary
+// as necessary.
 var StandardDevcontainerJSONPatterns = []string{
 	".devcontainer.json",
 	".devcontainer/devcontainer.json",
 	".devcontainer/*/devcontainer.json",
 }
 
-// NewCommand initializes the command's lifecycle
-func NewCommand(appName string, appVersion string) {
-	var opts = struct {
+// VersionText is just the message printed out when verison
+// information is requested.
+var VersionText = heredoc.Doc(`
+    %s, version %s
+    The lightweight, native Go CLI for devcontainers
+    Copyright (C) 2025  Neil Santos
+
+    License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+
+    This is free software; you are free to change and redistribute it.
+    There is NO WARRANTY, to the extent permitted by law.
+`)
+
+type Command struct {
+	Arguments []string
+	Options   struct {
 		Help         options.Help  `getopt:"-h --help display help"`
 		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`
 		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
@@ -72,89 +85,22 @@ func NewCommand(appName string, appVersion string) {
 		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
 		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
 		Version      bool          `getopt:"--version display version informaiton then exit"`
-	}{}
-
-	options.Register(&opts)
-	var defConfigPaths = []string{
-		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", appName)),
-	}
-	for _, defConfigPath := range defConfigPaths {
-		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
-			continue
-		}
-		if err := opts.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(int(ExitErrorParsingFlags))
-		}
-	}
-	args := options.Parse()
-
-	if opts.Version {
-		fmt.Printf(heredoc.Doc(`
-                    %s, version %s
-                    The lightweight, native Go CLI for devcontainers
-                    Copyright (C) 2025  Neil Santos
-
-                    License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
-
-                    This is free software; you are free to change and redistribute it.
-                    There is NO WARRANTY, to the extent permitted by law.
-                `), appName, appVersion)
-		os.Exit(int(ExitNormal))
 	}
 
-	logLevel := new(slog.LevelVar)
-	switch {
-	case opts.Debug:
-		logLevel.Set(slog.LevelDebug)
-	case opts.Verbose:
-		logLevel.Set(slog.LevelInfo)
-	default:
-		logLevel.Set(slog.LevelError)
-	}
-	slog.SetDefault(slog.New(devslog.NewHandler(os.Stdout, &devslog.Options{
-		HandlerOptions: &slog.HandlerOptions{
-			AddSource: true,
-			Level:     logLevel,
-		},
-		NewLineAfterLog:   false,
-		SortKeys:          true,
-		StringIndentation: true,
-	})))
-	slog.Debug("command line parsed", "args", args)
+	suppressOutput bool
+}
 
-	if opts.MakeMeRoot {
-		slog.Info("mapping your UID and GID to 0:0 inside the container")
-	}
+// NewCommand initializes the command's lifecycle
+func NewCommand(appName string, appVersion string) {
+	var cmd Command
 
-	var targets = findDevcontainerJSON(args)
-	var targetDevcontainerJSON string
-	switch {
-	case len(targets) == 0:
-		slog.Debug("unable to find devcontainer.json candidates")
-		fmt.Println("Unable to find a valid devcontainer.json file to target; exiting.")
-		os.Exit(int(ExitNoDevcJSONFound))
-	case len(targets) > 1:
-		slog.Debug("found multiple devcontainer.json candidates; giving up")
-		fmt.Println(heredoc.Doc(`
-			Found multiple devcontainer specifications.
-			Specify one explicitly as a value to the -f/--file command line flag to continue.
+	cmd.parseOptions(appName, appVersion)
+	slog.Debug("command line options parsed", "opts", cmd.Options)
+	slog.Debug("command line arguments ", "args", cmd.Arguments)
 
-			The following paths are eligible targets:
-		`))
-		for _, target := range targets {
-			fmt.Printf("\t%s\n", target)
-		}
-		os.Exit(int(ExitTooManyDevJSONFound))
-	default:
-		slog.Debug("found a devcontainer.json to target", "path", targets[0])
-		targetDevcontainerJSON = targets[0]
-	}
-
+	targetDevcontainerJSON := findDevcontainerJSON(cmd.Arguments)
 	slog.Debug("instantiating a parser for devcontainer.json", "path", targetDevcontainerJSON)
+
 	parser := writ.NewParser(targetDevcontainerJSON)
 	if err := parser.Validate(); err != nil {
 		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
@@ -164,30 +110,30 @@ func NewCommand(appName string, appVersion string) {
 		slog.Error("devcontainer.json could not be parsed", "path", targetDevcontainerJSON, "error", err)
 		os.Exit(int(ExitNonValidDevcontainerJSON))
 	}
-	if opts.ValidateOnly {
+	if cmd.Options.ValidateOnly {
 		slog.Info("devcontainer.json validated and parsed successfully", "path", targetDevcontainerJSON)
 		os.Exit(int(ExitNormal))
 	}
 
-	socketAdddr := getSocketAddr(opts.Socket)
+	socketAdddr := getSocketAddr(cmd.Options.Socket)
 	if len(socketAdddr) == 0 {
 		slog.Error("No socket address / path specified and none can be found")
 		fmt.Println("fatal: Could not determine Podman/Docker socket address. Exiting.")
 		os.Exit(int(ExitNoSocketFound))
 	}
 
-	trillClient := trill.NewClient(socketAdddr, opts.MakeMeRoot)
+	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
 	imageName := createImageTagBase(&parser)
-	suppressOutput := logLevel.Level() > slog.LevelInfo
+
 	var imageTag string
 	if parser.Config.Image != nil && len(*parser.Config.Image) > 0 {
 		imageTag = *parser.Config.Image
 		slog.Debug("pulling image tag from remote registry", "tag", imageTag)
-		trillClient.PullContainerImage(imageTag, suppressOutput)
+		trillClient.PullContainerImage(imageTag, cmd.suppressOutput)
 	} else {
 		imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-		slog.Debug("building container image", "tag", imageTag, "suppressOutput", suppressOutput)
-		trillClient.BuildContainerImage(&parser, imageTag, suppressOutput)
+		slog.Debug("building container image", "tag", imageTag)
+		trillClient.BuildContainerImage(&parser, imageTag, cmd.suppressOutput)
 	}
 
 	slog.Debug("starting devcontainer", "tag", imageTag, "name", imageName)
@@ -253,6 +199,65 @@ func createImageTagBase(p *writ.Parser) string {
 	return retval
 }
 
+// parseOptions parses the command-line options and parameters and
+// does a little housekeeping.
+func (c *Command) parseOptions(appName string, appVersion string) {
+	options.Register(&c.Options)
+	c.setFlagsFile(appName)
+	c.Arguments = options.Parse()
+
+	if c.Options.Version {
+		fmt.Printf(VersionText, appName, appVersion)
+		os.Exit(int(ExitNormal))
+	}
+
+	logLevel := new(slog.LevelVar)
+	switch {
+	case c.Options.Debug:
+		logLevel.Set(slog.LevelDebug)
+	case c.Options.Verbose:
+		logLevel.Set(slog.LevelInfo)
+	default:
+		logLevel.Set(slog.LevelError)
+	}
+
+	slog.SetDefault(slog.New(devslog.NewHandler(os.Stdout, &devslog.Options{
+		HandlerOptions: &slog.HandlerOptions{
+			AddSource: true,
+			Level:     logLevel,
+		},
+		NewLineAfterLog:   false,
+		SortKeys:          true,
+		StringIndentation: true,
+	})))
+
+	c.suppressOutput = logLevel.Level() > slog.LevelInfo
+
+	if c.Options.MakeMeRoot {
+		slog.Info("will be mapping your UID and GID to 0:0 inside the container")
+	}
+}
+
+// setFlagsFile goes through a list of supported paths for the flags
+// file and assigns the first valid hit for parsing
+func (c *Command) setFlagsFile(appName string) {
+	var defConfigPaths = []string{
+		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", appName)),
+	}
+	for _, defConfigPath := range defConfigPaths {
+		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
+			continue
+		}
+		if err := c.Options.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(int(ExitErrorParsingFlags))
+		}
+	}
+}
+
 // findDevcontainerJSON attempts to find a suitable devcontainer.json
 // given a list of path patterns and/or plain paths.
 //
@@ -263,33 +268,54 @@ func createImageTagBase(p *writ.Parser) string {
 // using StandardDevcontainerJSONPatterns. Otherwise, paths is
 // iterated upon.
 //
-// Returns a list of absolute paths to existing files that fit the
-// above constraints.
-//
-// If any errors are encountered, it panics.
-func findDevcontainerJSON(paths []string) []string {
-	if len(paths) > 0 {
-		slog.Debug("iterating through paths/patterns looking for a devcontainer.json")
-		var retval []string
-		for _, path := range paths {
-			matches, err := filepath.Glob(path)
-			if err != nil {
-				panic(err)
-			}
-			if len(matches) < 1 {
-				continue
-			}
-			for _, match := range matches {
-				if _, err := os.Stat(match); err != nil {
-					continue
-				}
-				if abspath, err := filepath.Abs(path); err == nil {
-					retval = append(retval, abspath)
-				}
-			}
-		}
-		return retval
+// Returns a string if a valid devcontainers.json is found; any errors
+// encountered, it runs os.Exit() with the appropriate ExitCode value.
+func findDevcontainerJSON(paths []string) string {
+	if len(paths) == 0 {
+		slog.Debug("iterating through standard devcontainer.json paths/patterns", "paths", StandardDevcontainerJSONPatterns)
+		return findDevcontainerJSON(StandardDevcontainerJSONPatterns)
 	}
 
-	return findDevcontainerJSON(StandardDevcontainerJSONPatterns)
+	slog.Debug("iterating through given paths/patterns looking for a devcontainer.json", "paths", paths)
+	var candidates []string
+	for _, path := range paths {
+		matches, err := filepath.Glob(path)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, match := range matches {
+			if _, err := os.Stat(match); err != nil {
+				continue
+			}
+			if abspath, err := filepath.Abs(path); err == nil {
+				candidates = append(candidates, abspath)
+			}
+		}
+	}
+
+	switch {
+	case len(candidates) == 0:
+		slog.Debug("unable to find any devcontainer.json candidates")
+		fmt.Println("Unable to find a valid devcontainer.json file to target; exiting.")
+		os.Exit(int(ExitNoDevcJSONFound))
+
+	case len(candidates) > 1:
+		slog.Debug("found multiple devcontainer.json candidates; giving up", "candidates", candidates)
+		fmt.Println(heredoc.Doc(`
+			Found multiple possible devcontainer configurations.
+			Specify one explicitly as an argument in the command line flag to continue.
+
+			The following paths are eligible candidates:
+		`))
+		for _, target := range candidates {
+			fmt.Printf("\t%s\n", target)
+		}
+		os.Exit(int(ExitTooManyDevJSONFound))
+
+	default:
+		slog.Debug("found a devcontainer.json to target", "path", candidates[0])
+	}
+
+	return candidates[0]
 }
