@@ -206,65 +206,6 @@ func createImageTagBase(p *writ.Parser) string {
 	return retval
 }
 
-// parseOptions parses the command-line options and parameters and
-// does a little housekeeping.
-func (c *Command) parseOptions(appName string, appVersion string) {
-	options.Register(&c.Options)
-	c.setFlagsFile(appName)
-	c.Arguments = options.Parse()
-
-	if c.Options.Version {
-		fmt.Printf(VersionText, appName, appVersion)
-		os.Exit(int(ExitNormal))
-	}
-
-	logLevel := new(slog.LevelVar)
-	switch {
-	case c.Options.Debug:
-		logLevel.Set(slog.LevelDebug)
-	case c.Options.Verbose:
-		logLevel.Set(slog.LevelInfo)
-	default:
-		logLevel.Set(slog.LevelError)
-	}
-
-	slog.SetDefault(slog.New(devslog.NewHandler(os.Stdout, &devslog.Options{
-		HandlerOptions: &slog.HandlerOptions{
-			AddSource: true,
-			Level:     logLevel,
-		},
-		NewLineAfterLog:   false,
-		SortKeys:          true,
-		StringIndentation: true,
-	})))
-
-	c.suppressOutput = logLevel.Level() > slog.LevelInfo
-
-	if c.Options.MakeMeRoot {
-		slog.Info("will be mapping your UID and GID to 0:0 inside the container")
-	}
-}
-
-// setFlagsFile goes through a list of supported paths for the flags
-// file and assigns the first valid hit for parsing
-func (c *Command) setFlagsFile(appName string) {
-	var defConfigPaths = []string{
-		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", appName)),
-	}
-	for _, defConfigPath := range defConfigPaths {
-		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
-			continue
-		}
-		if err := c.Options.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(int(ExitErrorParsingFlags))
-		}
-	}
-}
-
 // findDevcontainerJSON attempts to find a suitable devcontainer.json
 // given a list of path patterns and/or plain paths.
 //
@@ -325,4 +266,66 @@ func findDevcontainerJSON(paths []string) string {
 	}
 
 	return candidates[0]
+}
+
+// parseOptions parses the command-line options and parameters and
+// does a little housekeeping.
+func (c *Command) parseOptions(appName string, appVersion string) {
+	options.Register(&c.Options)
+	c.setFlagsFile(appName)
+	c.Arguments = options.Parse()
+
+	if c.Options.Version {
+		fmt.Printf(VersionText, appName, appVersion)
+		os.Exit(int(ExitNormal))
+	}
+
+	logLevel := new(slog.LevelVar)
+	switch {
+	case c.Options.Debug:
+		logLevel.Set(slog.LevelDebug)
+	case c.Options.Verbose:
+		logLevel.Set(slog.LevelInfo)
+	default:
+		logLevel.Set(slog.LevelError)
+	}
+
+	slog.SetDefault(slog.New(devslog.NewHandler(os.Stdout, &devslog.Options{
+		HandlerOptions: &slog.HandlerOptions{
+			AddSource: true,
+			Level:     logLevel,
+		},
+		NewLineAfterLog:   false,
+		SortKeys:          true,
+		StringIndentation: true,
+	})))
+
+	c.suppressOutput = logLevel.Level() > slog.LevelInfo
+
+	if c.Options.MakeMeRoot {
+		slog.Info("will be mapping your UID and GID to 0:0 inside the container")
+	}
+}
+
+// setFlagsFile goes through a list of supported paths for the flags
+// file and assigns the first valid hit for parsing
+func (c *Command) setFlagsFile(appName string) {
+	var defConfigPaths = []string{
+		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", appName)),
+	}
+	for _, defConfigPath := range defConfigPaths {
+		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
+			continue
+		}
+		if err := c.Options.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(int(ExitErrorParsingFlags))
+		}
+	}
+}
+
+//
 }
