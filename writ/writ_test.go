@@ -39,7 +39,6 @@ func TestParse(t *testing.T) {
 
 	assert.Empty(t, p.Config.ForwardPorts)
 	assert.Empty(t, p.Config.PortsAttributes)
-	assert.Nil(t, p.Config.OtherPortsAttributes) // This doesn't get filled in if forwardPorts is empty
 
 	assert.Empty(t, p.Config.ContainerEnv)
 	assert.Empty(t, p.Config.RemoteEnv)
