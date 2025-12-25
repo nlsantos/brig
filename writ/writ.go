@@ -251,7 +251,7 @@ func (p *Parser) normalizeValues() error {
 		// Convert to a path usable for building images
 		buildablePath, err := filepath.Rel(*p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), *p.Config.DockerFile))
 		if err != nil {
-			slog.Error("unable to build relative path", "root/dockerFIle", *p.Config.DockerFile, "error", err)
+			slog.Error("unable to build relative path", "root/dockerFile", *p.Config.DockerFile, "error", err)
 			return err
 		}
 		slog.Debug("converting value to buildable path", "root/dockerFile", *p.Config.DockerFile, "actual", buildablePath)
