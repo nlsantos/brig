@@ -4,6 +4,7 @@ version: 2.6
 before:
   hooks:
     - go mod tidy
+    - go vet ./...
     - go test ./...
 
 builds:
@@ -15,8 +16,9 @@ builds:
     env:
       - CGO_ENABLED=0
     goos:
-      - linux
       - darwin
+      - freebsd
+      - linux
       - windows
     goarch:
       - amd64
@@ -24,8 +26,11 @@ builds:
 
 upx:
   - enabled: true
-    goos: [linux, darwin]
+    goos: [darwin, linux]
     compress: best
+
+  - enabled: false
+    goos: [freebsd]
 
   - enabled: true
     goos: [windows]
