@@ -50,12 +50,12 @@ const (
 // built by brig
 const ImageTagPrefix = "localhost/devc--"
 
-// PortElevationFactor is added to privileged port bindings when they
+// PrivilegedPortOffset is added to privileged port bindings when they
 // are encountered, in order to raise them past 1023
 //
 // e.g., if attempting to bind port 53 on the host, it will be
 // translated as (53 + PortElevationFactor) before binding.
-const PortElevationFactor uint16 = 8000
+const PrivilegedPortOffset uint16 = 8000
 
 // StandardDevcontainerJSONPatterns is a list of paths and globs where
 // devcontainer.json files could reside.
@@ -85,15 +85,15 @@ var VersionText = heredoc.Doc(`
 type Command struct {
 	Arguments []string
 	Options   struct {
-		Help                options.Help  `getopt:"-h --help display this help message"`
-		Verbose             bool          `getopt:"-v --verbose enable diagnostic messages"`
-		Config              options.Flags `getopt:"-c --config=PATH path to rc file"`
-		Debug               bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
-		MakeMeRoot          bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
-		PortElevationFactor uint16        `getopt:"-f --port-factor=UINT number to increase privileged ports by"`
-		Socket              string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
-		ValidateOnly        bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
-		Version             bool          `getopt:"--version display version informaiton then exit"`
+		Help         options.Help  `getopt:"-h --help display this help message"`
+		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`
+		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
+		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		MakeMeRoot   bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
+		PortOffset   uint16        `getopt:"-o --port-offset=UINT number to offset privileged ports by"`
+		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
+		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
+		Version      bool          `getopt:"--version display version informaiton then exit"`
 	}
 
 	suppressOutput bool
@@ -312,10 +312,10 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 		StringIndentation: true,
 	})))
 
-	if c.Options.PortElevationFactor == 0 {
-		c.Options.PortElevationFactor = PortElevationFactor
-	} else if c.Options.PortElevationFactor < 1024 {
-		slog.Error("port elevation factor must be >= 1024", "factor", c.Options.PortElevationFactor)
+	if c.Options.PortOffset == 0 {
+		c.Options.PortOffset = PrivilegedPortOffset
+	} else if c.Options.PortOffset < 1024 {
+		slog.Error("privileged port offset  must be >= 1024", "offset", c.Options.PortOffset)
 		os.Exit(int(ExitUnsupportedConfiguration))
 	}
 
@@ -352,5 +352,5 @@ func (c *Command) setFlagsFile(appName string) {
 // Accepts port as input and returns a port number beyond the range of
 // privileged ports.
 func (c *Command) privilegedPortElevator(port uint16) uint16 {
-	return port + c.Options.PortElevationFactor
+	return port + c.Options.PortOffset
 }
