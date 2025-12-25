@@ -13,7 +13,15 @@
 ## If true, only performs schema validation and parsing before
 ## exiting; a non-zero exit code means that the devcontainer.json file
 ## it found failed validation or there was an error in parsing it
-#validate = true                 # can also be V=true
+#validate = true              # can also be V=true
+
+## Privileged ports (port numbers < 1023) will have their numbers
+## increased by this amount on the host side; e.g., if a config
+## attempts to bind port 80 on the host (whether explicitly or via
+## naked expose), brig will increase the host side's port number by
+## this amoutn and bind that port number instead. Default value set
+## below.
+#port-offset = 8000           # can also be o=<NUM>
 
 ## If true, maps your UID and GID to 0:0 inside the devcontainer;
 ## i.e., you will be root. This is currently Podman-only, and is
@@ -21,10 +29,10 @@
 ## "keep-id" (and you want to keep it that way).
 ##
 ## Note that enabling this when using Docker will lead to lossage.
-#make-me-root = true
+#make-me-root = true          # can also be R=true
 
 ## Specify socket address (named pipe on Windows) on which Podman or
 ## Docker is listening.
 ##
 ## The example below is what I use on Windows + Docker
-#socket = "npipe:////./pipe/docker_engine"
+#socket = "npipe:////./pipe/docker_engine"     # can also be s=<PATH>
