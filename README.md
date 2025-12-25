@@ -6,12 +6,20 @@
 
 ## Table of contents
 
+- [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
 - [Why use `brig`?](#why-use-brig)
 - [Podman-first design](#podman-first-design)
 - [Features](#features)
 - [Alternatives](#alternatives)
 - [Incompatibilities](#incompatibilities)
+
+## Prerequisites
+
+Before installing `brig`, ensure you have the following:
+
+- **Container Engine:** A running instance of [Podman](https://podman.io/) (highly recommended) or Docker.
+- **Git:** Required for processing repository metadata (if working with version-controlled codebases).
 
 ## Quick start
 
@@ -39,6 +47,8 @@ Download the [latest release](releases) for your platform and extract the binary
 
 - Wait for the build to complete. Once finished, your terminal will be attached to the devcontainer.
 
+> ⚠️ Note on persistence: `brig` treats containers as ephemeral. When you exit the shell, the container is removed. Ensure all persistent work is saved in your project directory (which is mounted) or defined in the `devcontainer.json` configuration.
+
 ### Options
 
 - **Help**: Run `brig --help` to see all supported flags.
@@ -53,11 +63,11 @@ Download the [latest release](releases) for your platform and extract the binary
 
 ## Podman-first design
 
-The devcontainer spec is written primarily with the assumption that the underlying container platform is Docker. `brig` was build to treat [podman](https://podman.io/) as a first-class citizen.
+The devcontainer spec is written primarily with the assumption that the underlying container platform is Docker. `brig` was built to treat [podman](https://podman.io/) as a first-class citizen.
 
 I prefer podman for its rootless design. While `brig` uses Moby's packages and the Docker REST API, development prioritizes compatibility with podman. If the Moby packages ever become incompatible with Podman, `brig` will remain on the latest version that is.
 
-_To summarize, Docker support is a side-effect of podman's compatibility with the Docker REST API and Moby packages. While I aim for feature parity, podman support will always take precedence._
+_To summarize, Docker support is achieved via Podman's compatibility with the Docker REST API and Moby packages. While `brig` works seamlessly with Docker, feature development prioritizes Podman's rootless architecture._
 
 ## Features
 
@@ -84,7 +94,8 @@ These are the known differences with the observed behavior of Visual Studio Code
 
 `brig` differs from the official spec regarding port forwarding and privilege elevation to strictly adhere to rootless security principles.
 
-- **No Privilege Elevation:** `brig` will not attempt to gain elevated privileges to bind low-numbered ports.
+- **No privilege elevation:** `brig` will not attempt to gain elevated privileges to bind low-numbered ports.
+- **Privileged ports remapping:** Instead of privilege elevation, `brig` offsets the port number on host side by a preset figure (defaults to `8000` but can be set via the `-o` or `--port-offset` flags).
 - **`appPort` vs `forwardPorts`:** `brig` prefers `appPort` for predictable host mapping.
 
 For a detailed technical explanation of these design choices, see [docs/ports.md](docs/ports.md).
