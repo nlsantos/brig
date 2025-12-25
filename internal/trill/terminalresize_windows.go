@@ -20,7 +20,6 @@
 package trill
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"time"
