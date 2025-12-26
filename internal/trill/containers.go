@@ -189,7 +189,7 @@ func (c *Client) buildContainerConfig(p *writ.Parser, tag string) *container.Con
 		WorkingDir:   *p.Config.WorkspaceFolder,
 	}
 
-	if p.Config.RemoteUser != nil {
+	if p.Config.ContainerUser != nil {
 		containerCfg.User = *p.Config.ContainerUser
 	}
 
