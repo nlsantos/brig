@@ -59,6 +59,35 @@ func (a *AppPort) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-end
 }
 
+func (d *DockerComposeFile) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	var elements []string
+	switch v := raw.(type) {
+	case []any:
+		for _, x := range v {
+			switch y := x.(type) {
+			case string:
+				elements = append(elements, y)
+			default:
+				return fmt.Errorf("unsupported type: %#v for value %#v", y, x)
+			}
+		}
+
+	case string:
+		elements = append(elements, v)
+
+	default:
+		return fmt.Errorf("unsupported type: %#v for value %#v", v, raw)
+	}
+
+	*d = elements
+	return nil
+}
+
 // UnmarshalJSON for the ForwardPort type
 func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-start
