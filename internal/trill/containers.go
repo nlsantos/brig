@@ -43,7 +43,7 @@ import (
 // tag/image name for the OCI image to use as base, and a name for the
 // created container.
 func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string) {
-	slog.Debug("attempting to start and attach to container based on tag", "tag", tag)
+	slog.Debug("attempting to start and attach to container", "tag", tag, "name", containerName)
 	containerCfg := c.buildContainerConfig(p, tag)
 	hostCfg := c.buildHostConfig(p)
 
@@ -56,6 +56,9 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		panic(err)
 	}
 	c.bindMounts(p, hostCfg)
+
+	slog.Debug("using container config", "config", containerCfg)
+	slog.Debug("using host config", "config", hostCfg)
 
 	ctx := context.Background()
 	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
@@ -193,7 +196,6 @@ func (c *Client) buildContainerConfig(p *writ.Parser, tag string) *container.Con
 		containerCfg.User = *p.Config.ContainerUser
 	}
 
-	slog.Debug("using container config", "config", containerCfg)
 	return &containerCfg
 }
 
@@ -215,7 +217,6 @@ func (c *Client) buildHostConfig(p *writ.Parser) *container.HostConfig {
 		hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
 	}
 
-	slog.Debug("using host config", "config", hostCfg)
 	return &hostCfg
 }
 
