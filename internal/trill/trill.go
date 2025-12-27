@@ -20,6 +20,8 @@ package trill
 import (
 	"log/slog"
 
+	composetypes "github.com/compose-spec/compose-go/types"
+	"github.com/heimdalr/dag"
 	mobyclient "github.com/moby/moby/client"
 )
 
@@ -40,7 +42,9 @@ type Client struct {
 	MakeMeRoot             bool                   // If true, will ensure that the current user gets mapped as root inside the container
 	SocketAddr             string                 // The socket/named pipe used to communicate with the server
 
-	mobyClient *mobyclient.Client
+	mobyClient      *mobyclient.Client
+	composerProject *composetypes.Project
+	servicesDAG     *dag.DAG
 }
 
 // NewClient returns a Client that's set to communicate with
