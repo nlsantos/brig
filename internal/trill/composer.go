@@ -138,7 +138,7 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 			continue
 		}
 
-		networkCreateOpts, err := convertNetworkConfig(networkCfg)
+		networkCreateOpts, err := c.convertNetworkConfig(networkCfg)
 		if err != nil {
 			return err
 		}
@@ -151,6 +151,45 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 		}
 	}
 	return nil
+}
+
+func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppressOutput bool) (buildOpts *mobyclient.ImageBuildOptions, err error) {
+	if buildCfg == nil {
+		return nil, nil
+	}
+
+	if len(buildCfg.DockerfileInline) > 0 {
+		containerfilePath, err := c.synthesizeInlineContainerfile(buildCfg.Context, &buildCfg.DockerfileInline)
+		if err != nil {
+			slog.Error("encountered an error while attempting to synthesize a Containerfile from an inlined one", "error", err)
+			return nil, err
+		}
+		buildCfg.Dockerfile = containerfilePath
+	}
+
+	buildOpts = &mobyclient.ImageBuildOptions{
+		Tags:           buildCfg.Tags,
+		SuppressOutput: suppressOutput,
+		NoCache:        buildCfg.NoCache,
+		PullParent:     buildCfg.Pull,
+		Isolation:      container.Isolation(buildCfg.Isolation),
+		NetworkMode:    buildCfg.Network, // This might not be equivalent
+		Dockerfile:     buildCfg.Dockerfile,
+		BuildArgs:      buildCfg.Args,
+		Labels:         buildCfg.Labels,
+		CacheFrom:      buildCfg.CacheFrom,
+		Target:         buildCfg.Target,
+	}
+
+	for name, uliimit := range buildCfg.Ulimits {
+		buildOpts.Ulimits = append(buildOpts.Ulimits, &container.Ulimit{
+			Name: name,
+			Hard: int64(uliimit.Hard),
+			Soft: int64(uliimit.Soft),
+		})
+	}
+
+	return buildOpts, err
 }
 
 func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.Config {
@@ -249,43 +288,191 @@ func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes
 	return &hostCfg
 }
 
-func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppressOutput bool) (buildOpts *mobyclient.ImageBuildOptions, err error) {
-	if buildCfg == nil {
-		return nil, nil
+// convertNetworkConfig converts a NetworkConfig to a
+// NetworkCreateOptions so it can be used with the REST API.
+func (c *Client) convertNetworkConfig(networkCfg composetypes.NetworkConfig) (*mobyclient.NetworkCreateOptions, error) {
+	// TODO: Implement conversion
+	if len(networkCfg.Ipam.Driver) > 0 || networkCfg.Ipam.Config != nil {
+		slog.Error("network config conversion for IPAM config is not yet implemented", "ipamcfg", networkCfg.Ipam)
+		return nil, fmt.Errorf("network config relies on unimplemented functionality")
 	}
 
-	if len(buildCfg.DockerfileInline) > 0 {
-		containerfilePath, err := c.synthesizeInlineContainerfile(buildCfg.Context, &buildCfg.DockerfileInline)
+	defTrue := true
+	nco := mobyclient.NetworkCreateOptions{
+		Driver:     networkCfg.Driver,
+		Scope:      "local",
+		EnableIPv4: &defTrue,
+		EnableIPv6: &networkCfg.EnableIPv6,
+		Internal:   networkCfg.Internal,
+		Attachable: networkCfg.Attachable,
+		Ingress:    false,
+		ConfigOnly: false,
+	}
+	return &nco, nil
+}
+
+func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (err error) {
+	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
+	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
+	slog.Debug("converting service config to Moby equivalents", "name", containerName)
+
+	c.waitForServiceDependencies(&serviceCfg.DependsOn)
+
+	containerCfg := c.buildServiceContainerConfig(p, serviceCfg)
+	hostCfg := c.buildServiceHostConfig(p, serviceCfg)
+	if serviceCfg.Build != nil {
+		buildOpts, err := c.buildServiceBuildOpts(serviceCfg.Build, suppressOutput)
 		if err != nil {
-			slog.Error("encountered an error while attempting to synthesize a Containerfile from an inlined one", "error", err)
-			return nil, err
+			return err
 		}
-		buildCfg.Dockerfile = containerfilePath
+		buildOpts.Tags = append(buildOpts.Tags, imageTag)
+		if err = c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
+			return err
+		}
+		containerCfg.Image = imageTag
+	} else if len(serviceCfg.Image) > 0 {
+		if err = c.PullContainerImage(serviceCfg.Image, suppressOutput); err != nil {
+			return err
+		}
+		containerCfg.Image = serviceCfg.Image
 	}
 
-	buildOpts = &mobyclient.ImageBuildOptions{
-		Tags:           buildCfg.Tags,
-		SuppressOutput: suppressOutput,
-		NoCache:        buildCfg.NoCache,
-		PullParent:     buildCfg.Pull,
-		Isolation:      container.Isolation(buildCfg.Isolation),
-		NetworkMode:    buildCfg.Network, // This might not be equivalent
-		Dockerfile:     buildCfg.Dockerfile,
-		BuildArgs:      buildCfg.Args,
-		Labels:         buildCfg.Labels,
-		CacheFrom:      buildCfg.CacheFrom,
-		Target:         buildCfg.Target,
+	slog.Debug("creating Composer service container", "name", containerName)
+	slog.Debug("using container config", "config", containerCfg)
+	slog.Debug("using host config", "config", hostCfg)
+	ctx := context.Background()
+	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
+		Config:     containerCfg,
+		HostConfig: hostCfg,
+		Name:       containerName,
+	})
+	if err != nil {
+		slog.Error("encountered an error creating a container", "error", err)
+		return err
+	}
+	slog.Debug("Composer container created successfully", "id", createResp.ID)
+
+	slog.Debug("attempting to start Composer container", "id", createResp.ID)
+	if _, err = c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
+		slog.Error("encountered an error while trying to start Composer container", "id", createResp.ID)
+		return err
+	}
+	slog.Debug("Composer container started successfully", "id", createResp.ID)
+	return nil
+}
+
+func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, suppressOutput bool) error {
+	roots := servicesDAG.GetRoots()
+	for len(roots) > 0 {
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(roots))
+
+		for raw := range maps.Values(roots) {
+			serviceCfg, ok := raw.(*composetypes.ServiceConfig)
+			if !ok {
+				return fmt.Errorf("value for vertex is of unexpected type")
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				errChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
+			}()
+		}
+		wg.Wait()
+		close(errChan)
+
+		for err := range errChan {
+			if err != nil {
+				return err
+			}
+		}
+
+		for id := range roots {
+			if err := servicesDAG.DeleteVertex(id); err != nil {
+				return err
+			}
+		}
+
+		roots = servicesDAG.GetRoots()
 	}
 
-	for name, uliimit := range buildCfg.Ulimits {
-		buildOpts.Ulimits = append(buildOpts.Ulimits, &container.Ulimit{
-			Name: name,
-			Hard: int64(uliimit.Hard),
-			Soft: int64(uliimit.Soft),
-		})
+	return nil
+}
+
+func (c *Client) createComposerVolumes(volumes composetypes.Volumes) error {
+	slog.Warn("COMPOSER VOLUMES IS UNIMPLEMENTED")
+	for _, volumeCfg := range volumes {
+		slog.Debug(fmt.Sprintf("%#v", volumeCfg))
+	}
+	return nil
+}
+
+// synthesizeInlineContainerfile creates a file-based Containerfile
+// from an inlined configuration in a Composer YAML.
+func (c *Client) synthesizeInlineContainerfile(contextPath string, inlinedContainerfile *string) (containerfilePath string, err error) {
+	containerfilePath = filepath.Join(contextPath, "Containerfile")
+	cf, err := os.OpenFile(containerfilePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err != nil {
+			return
+		}
+		err = cf.Close()
+	}()
+	_, err = cf.WriteString(*inlinedContainerfile)
+	return containerfilePath, err
+}
+
+// teardownComposerServices goes through the services from leaves to
+// roots to stop and remove them.
+func (c *Client) teardownComposerServices(servicesDAG *dag.DAG) error {
+	leaves := servicesDAG.GetLeaves()
+	for len(leaves) > 0 {
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(leaves))
+
+		for raw := range maps.Values(leaves) {
+			serviceCfg, ok := raw.(*composetypes.ServiceConfig)
+			if !ok {
+				return fmt.Errorf("value for vertex is of unexpected type")
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
+				slog.Info("stopping and removing Composer container", "container", containerName)
+				if _, err := c.mobyClient.ContainerStop(context.Background(), containerName, mobyclient.ContainerStopOptions{}); err != nil {
+					errChan <- err
+					return
+				}
+				if _, err := c.mobyClient.ContainerRemove(context.Background(), containerName, mobyclient.ContainerRemoveOptions{}); err != nil {
+					errChan <- err
+				}
+			}()
+		}
+		wg.Wait()
+		close(errChan)
+
+		for err := range errChan {
+			if err != nil {
+				return err
+			}
+		}
+
+		for id := range leaves {
+			if err := servicesDAG.DeleteVertex(id); err != nil {
+				return err
+			}
+		}
+
+		leaves = servicesDAG.GetLeaves()
 	}
 
-	return buildOpts, err
+	return nil
 }
 
 // waitForServiceDependencies goes through a service's depends_on
@@ -412,185 +599,4 @@ func (c *Client) waitForServiceDependencies(dependsOn *composetypes.DependsOnCon
 	}
 
 	return nil
-}
-
-func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (err error) {
-	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
-	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
-	slog.Debug("converting service config to Moby equivalents", "name", containerName)
-
-	c.waitForServiceDependencies(&serviceCfg.DependsOn)
-
-	containerCfg := c.buildServiceContainerConfig(p, serviceCfg)
-	hostCfg := c.buildServiceHostConfig(p, serviceCfg)
-	if serviceCfg.Build != nil {
-		buildOpts, err := c.buildServiceBuildOpts(serviceCfg.Build, suppressOutput)
-		if err != nil {
-			return err
-		}
-		buildOpts.Tags = append(buildOpts.Tags, imageTag)
-		if err = c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
-			return err
-		}
-		containerCfg.Image = imageTag
-	} else if len(serviceCfg.Image) > 0 {
-		if err = c.PullContainerImage(serviceCfg.Image, suppressOutput); err != nil {
-			return err
-		}
-		containerCfg.Image = serviceCfg.Image
-	}
-
-	slog.Debug("creating Composer service container", "name", containerName)
-	slog.Debug("using container config", "config", containerCfg)
-	slog.Debug("using host config", "config", hostCfg)
-	ctx := context.Background()
-	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
-		Config:     containerCfg,
-		HostConfig: hostCfg,
-		Name:       containerName,
-	})
-	if err != nil {
-		slog.Error("encountered an error creating a container", "error", err)
-		return err
-	}
-	slog.Debug("Composer container created successfully", "id", createResp.ID)
-
-	slog.Debug("attempting to start Composer container", "id", createResp.ID)
-	if _, err = c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
-		slog.Error("encountered an error while trying to start Composer container", "id", createResp.ID)
-		return err
-	}
-	slog.Debug("Composer container started successfully", "id", createResp.ID)
-	return nil
-}
-
-func (c *Client) synthesizeInlineContainerfile(contextPath string, inlinedContainerfile *string) (containerfilePath string, err error) {
-	containerfilePath = filepath.Join(contextPath, "Containerfile")
-	cf, err := os.OpenFile(containerfilePath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err != nil {
-			return
-		}
-		err = cf.Close()
-	}()
-	_, err = cf.WriteString(*inlinedContainerfile)
-	return containerfilePath, err
-}
-
-func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, suppressOutput bool) error {
-	roots := servicesDAG.GetRoots()
-	for len(roots) > 0 {
-		var wg sync.WaitGroup
-		errChan := make(chan error, len(roots))
-
-		for raw := range maps.Values(roots) {
-			serviceCfg, ok := raw.(*composetypes.ServiceConfig)
-			if !ok {
-				return fmt.Errorf("value for vertex is of unexpected type")
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				errChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
-			}()
-		}
-		wg.Wait()
-		close(errChan)
-
-		for err := range errChan {
-			if err != nil {
-				return err
-			}
-		}
-
-		for id := range roots {
-			if err := servicesDAG.DeleteVertex(id); err != nil {
-				return err
-			}
-		}
-
-		roots = servicesDAG.GetRoots()
-	}
-
-	return nil
-}
-
-func (c *Client) teardownComposerServices(servicesDAG *dag.DAG) error {
-	leaves := servicesDAG.GetLeaves()
-	for len(leaves) > 0 {
-		var wg sync.WaitGroup
-		errChan := make(chan error, len(leaves))
-
-		for raw := range maps.Values(leaves) {
-			serviceCfg, ok := raw.(*composetypes.ServiceConfig)
-			if !ok {
-				return fmt.Errorf("value for vertex is of unexpected type")
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
-				slog.Info("stopping and removing Composer container", "container", containerName)
-				if _, err := c.mobyClient.ContainerStop(context.Background(), containerName, mobyclient.ContainerStopOptions{}); err != nil {
-					errChan <- err
-					return
-				}
-				if _, err := c.mobyClient.ContainerRemove(context.Background(), containerName, mobyclient.ContainerRemoveOptions{}); err != nil {
-					errChan <- err
-				}
-			}()
-		}
-		wg.Wait()
-		close(errChan)
-
-		for err := range errChan {
-			if err != nil {
-				return err
-			}
-		}
-
-		for id := range leaves {
-			if err := servicesDAG.DeleteVertex(id); err != nil {
-				return err
-			}
-		}
-
-		leaves = servicesDAG.GetLeaves()
-	}
-
-	return nil
-}
-
-func (c *Client) createComposerVolumes(volumes composetypes.Volumes) error {
-	slog.Warn("COMPOSER VOLUMES IS UNIMPLEMENTED")
-	for _, volumeCfg := range volumes {
-		slog.Debug(fmt.Sprintf("%#v", volumeCfg))
-	}
-	return nil
-}
-
-func convertNetworkConfig(networkCfg composetypes.NetworkConfig) (*mobyclient.NetworkCreateOptions, error) {
-	// TODO: Implement conversion
-	if len(networkCfg.Ipam.Driver) > 0 || networkCfg.Ipam.Config != nil {
-		slog.Error("network config conversion for IPAM config is not yet implemented", "ipamcfg", networkCfg.Ipam)
-		return nil, fmt.Errorf("network config relies on unimplemented functionality")
-	}
-
-	defTrue := true
-	nco := mobyclient.NetworkCreateOptions{
-		Driver:     networkCfg.Driver,
-		Scope:      "local",
-		EnableIPv4: &defTrue,
-		EnableIPv6: &networkCfg.EnableIPv6,
-		Internal:   networkCfg.Internal,
-		Attachable: networkCfg.Attachable,
-		Ingress:    false,
-		ConfigOnly: false,
-	}
-	return &nco, nil
 }
