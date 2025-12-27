@@ -303,7 +303,7 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 		logLevel.Set(slog.LevelError)
 	}
 
-	slog.SetDefault(slog.New(devslog.NewHandler(os.Stdout, &devslog.Options{
+	slog.SetDefault(slog.New(devslog.NewHandler(os.Stderr, &devslog.Options{
 		HandlerOptions: &slog.HandlerOptions{
 			AddSource: true,
 			Level:     logLevel,
