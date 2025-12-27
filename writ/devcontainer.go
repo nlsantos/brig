@@ -59,7 +59,7 @@ type DevcontainerConfig struct {
 	// /workspaces/$project.
 	WorkspaceMount *string `json:"workspaceMount,omitempty"`
 	// The name of the docker-compose file(s) used to start the services.
-	DockerComposeFile *CacheFrom `json:"dockerComposeFile,omitempty"`
+	DockerComposeFile *DockerComposeFile `json:"dockerComposeFile,omitempty"`
 	// An array of services that should be started and stopped.
 	RunServices []string `json:"runServices,omitempty"`
 	// The service you want to work on. This is considered the primary container for your dev
@@ -168,6 +168,15 @@ type BuildOptions struct {
 	// Target stage in a multi-stage build.
 	Target *string `json:"target,omitempty"`
 }
+
+// DockerComposeFile contains wither a path or an ordered list of
+// paths to Docker Compose files relative to the devcontainer.json
+// file.
+//
+// Using an array is useful when extending your Docker Compose
+// configuration. The order of the array matters since the contents of
+// later files can override values set in previous ones.
+type DockerComposeFile []string
 
 // Features represent additional functionality that's bolted onto a
 // devcontainer.
@@ -339,8 +348,6 @@ type AppPort []string
 
 // CacheFrom specifies the image to consider as a cache. Use an array
 // to specify multiple images.
-//
-// The name of the docker-compose file(s) used to start the services.
 type CacheFrom struct {
 	String      *string
 	StringArray []string
