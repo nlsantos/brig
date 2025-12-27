@@ -139,21 +139,22 @@ func NewCommand(appName string, appVersion string) {
 	switch {
 	case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
 		imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-		slog.Debug("building container image", "tag", imageTag)
-		trillClient.BuildContainerImage(&parser, imageTag, cmd.suppressOutput)
+		if err := trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
+			panic(err)
+		}
+		trillClient.StartContainer(&parser, imageTag, imageName)
 
 	case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 		imageTag = *parser.Config.Image
-		slog.Debug("pulling image tag from remote registry", "tag", imageTag)
-		trillClient.PullContainerImage(imageTag, cmd.suppressOutput)
+		if err := trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
+			panic(err)
+		}
+		trillClient.StartContainer(&parser, imageTag, imageName)
 
 	default:
 		slog.Error("devcontainer.json specifies an unsupported mode of operation; exiting")
 		os.Exit(int(ExitUnsupportedConfiguration))
 	}
-
-	slog.Debug("starting devcontainer", "tag", imageTag, "name", imageName)
-	trillClient.StartContainer(&parser, imageTag, imageName)
 }
 
 // Try to generate a distinct yet meaningful name for the generated
