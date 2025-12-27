@@ -87,8 +87,8 @@ func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTag
 	// Composer project, otherwise we won't know which one to attach
 	// to.
 	if _, err := c.servicesDAG.GetVertex(*p.Config.Service); err != nil {
-		slog.Debug("service container in devcontainer.json not named in composer YAML", "service", *p.Config.Service, "vertices", maps.Keys(c.servicesDAG.GetVertices()))
-		return fmt.Errorf("service container in devcontainer.json not named in composer YAML: %s", *p.Config.Service)
+		slog.Debug("service container in devcontainer.json not named in Composer YAML", "service", *p.Config.Service, "vertices", maps.Keys(c.servicesDAG.GetVertices()))
+		return fmt.Errorf("service container in devcontainer.json not named in Composer YAML: %s", *p.Config.Service)
 	}
 
 	if err := c.createComposerNetworks(c.composerProject.Networks); err != nil {
@@ -288,13 +288,130 @@ func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppr
 	return buildOpts, err
 }
 
-func (c *Client) waitForServiceDependencies(dependsOn *composetypes.DependsOnConfig) {
-	//var wg sync.WaitGroup
-
-	for containerName, dependency := range *dependsOn {
-		spew.Dump(containerName)
-		spew.Dump(dependency)
+// waitForServiceDependencies goes through a service's depends_on
+// configuration and performs blocking checks until the specified
+// conditions are met.
+//
+// Note that, at the point this function is called, the services a
+// target service depends on would have been created and started.
+func (c *Client) waitForServiceDependencies(dependsOn *composetypes.DependsOnConfig) error {
+	if len(*dependsOn) < 1 {
+		return nil
 	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(*dependsOn))
+
+	for containerBasename, dependency := range *dependsOn {
+		containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, containerBasename)
+		condition := dependency.Condition
+		slog.Debug("attempting to resolve service dependency", "service", containerName, "condition", condition)
+		wg.Add(1)
+		go func() {
+			ctx := context.Background()
+			ticker := time.NewTicker(1 * time.Second)
+
+			defer ticker.Stop()
+			defer wg.Done()
+
+			var loopCtr uint = 0
+			for range ticker.C {
+				slog.Debug("inspecting container state", "service", containerName)
+				inspectRes, err := c.mobyClient.ContainerInspect(ctx, containerName, mobyclient.ContainerInspectOptions{})
+				if err != nil {
+					slog.Debug("encountered an error while inspecting container state", "service", containerName, "error", err)
+					errChan <- err
+					return
+				}
+				slog.Debug("container state inspected", "service", containerName, "state", inspectRes.Container.State.Status)
+				switch condition {
+				case "service_completed_successfully":
+					if !inspectRes.Container.State.Running {
+						slog.Debug("container flagged as having exited", "service", containerName)
+						if inspectRes.Container.State.ExitCode != 0 {
+							slog.Debug("container needed to complete successfully but didn't", "service", containerName, "exit-code", inspectRes.Container.State.ExitCode)
+							errChan <- fmt.Errorf("service %s needed to complete successfully but had exit code %d", containerName, inspectRes.Container.State.ExitCode)
+						}
+						return
+					}
+					slog.Debug("blocking until container's next exit", "service", containerName)
+					waitOpts := mobyclient.ContainerWaitOptions{
+						Condition: container.WaitConditionNextExit,
+					}
+					waitResult := c.mobyClient.ContainerWait(ctx, containerName, waitOpts)
+					for waitError := range waitResult.Error {
+						slog.Debug("encountered an error while waiting for container's next exit", "service", containerName, "error", err)
+						errChan <- waitError
+						return
+					}
+					// Let's be lazy and just have the next tick
+					// figure out the exit code
+
+				case "service_healthy":
+					if !inspectRes.Container.State.Running {
+						// If a container isn't running this early on,
+						// it probably means it has crashed shortly
+						// after it was started and bears
+						// investigation
+						slog.Debug("container has quit running shortly after starting; this warrants looking into", "service", containerName, "exit-code", inspectRes.Container.State.ExitCode)
+						slog.Error("container is flagged as not running", "service", containerName, "exit-code", inspectRes.Container.State.ExitCode)
+						errChan <- fmt.Errorf("service %s needed to be healthy but isn't", containerName)
+						return
+					}
+
+					if inspectRes.Container.State.Health == nil || inspectRes.Container.State.Health.Status == container.NoHealthcheck {
+						slog.Error("container has healthcheck dependents but has no healthcheck defined", "service", containerName)
+						errChan <- fmt.Errorf("service %s lacks a healthcheck", containerName)
+						return
+					}
+
+					if inspectRes.Container.State.Health.Status == container.Unhealthy {
+						slog.Debug("container reports being unhealthy", "service", containerName, "counter", loopCtr)
+						if loopCtr >= 10 {
+							slog.Error("encountered timeout while waiting for container to become healthy", "service", containerName)
+							errChan <- fmt.Errorf("encountered timeout while waiting for container %s to become healthy", containerName)
+						}
+					} else {
+						slog.Debug("container reports being healthy", "service", containerName, "counter", loopCtr)
+						if loopCtr >= 6 {
+							return
+						}
+					}
+					loopCtr++
+
+				case "service_started":
+					if !inspectRes.Container.State.Running {
+						// See comment for service_healthy
+						slog.Debug("container has quit running shortly after starting; this warrants looking into", "service", containerName, "exit-code", inspectRes.Container.State.ExitCode)
+						slog.Error("container is flagged as not running", "service", containerName, "exit-code", inspectRes.Container.State.ExitCode)
+						errChan <- fmt.Errorf("service %s needed to be running but isn't", containerName)
+						return
+					}
+
+					// We *could* return immediately here, but I
+					// prefer to wait a few seconds to make sure that
+					// the service stays up before doing so
+					if loopCtr++; loopCtr >= 6 {
+						return
+					}
+
+				default:
+					errChan <- fmt.Errorf("unknown dependency condition specified: %s", condition)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (err error) {
@@ -312,8 +429,6 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 			return err
 		}
 		buildOpts.Tags = append(buildOpts.Tags, imageTag)
-		fmt.Println(serviceCfg.Build.Context)
-		time.Sleep(2 * time.Second)
 		if err = c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
 			return err
 		}
@@ -325,10 +440,9 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 		containerCfg.Image = serviceCfg.Image
 	}
 
-	fmt.Println(containerName)
+	slog.Debug("creating Composer service container", "name", containerName)
 	slog.Debug("using container config", "config", containerCfg)
 	slog.Debug("using host config", "config", hostCfg)
-	slog.Debug("creating Composer service container", "name", containerName)
 	ctx := context.Background()
 	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
 		Config:     containerCfg,
