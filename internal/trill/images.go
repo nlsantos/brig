@@ -42,48 +42,64 @@ import (
 //
 // TODO: Add a flag to toggle deletion of the context tarball after
 // the creation of the OCI image
-func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput bool) {
+func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, imageTag string, buildOpts *mobyclient.ImageBuildOptions, suppressOutput bool) (err error) {
+	slog.Debug("building container image", "tag", imageTag)
+	fmt.Printf("Building image and tagging it as %s...\n", imageTag)
+
 	// While it's possible to have the REST API build an OCI image
 	// without having an intermediary tarball, I like having it around
 	// so it's easier to debug issues pertaining to the context
 	// tarball.
-	contextArchivePath, err := buildContextArchive(*p.Config.Context)
+	contextArchivePath, err := buildContextArchive(contextPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	contextArchive, err := os.Open(contextArchivePath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer func() {
-		if err := contextArchive.Close(); err != nil {
-			slog.Error("could not close context archive", "path", contextArchive.Name(), "error", err)
+		if err != nil {
+			return
 		}
-		if err := os.Remove(contextArchive.Name()); err != nil {
+
+		// contextArchive is closed automatically by the ImageBuild
+		// API call
+		if err = os.Remove(contextArchive.Name()); err != nil {
 			slog.Error("failed cleaning up context archive", "path", contextArchive.Name(), "error", err)
+			return
 		}
 	}()
 
+	if buildOpts == nil {
+		buildOpts = &mobyclient.ImageBuildOptions{
+			Context:        contextArchive,
+			Dockerfile:     dockerfilePath,
+			Remove:         true,
+			SuppressOutput: suppressOutput,
+			Tags:           []string{imageTag},
+		}
+	} else {
+		buildOpts.Context = contextArchive
+	}
 	// TODO: Support more of the build options offered by the
 	// devcontainer spec
-	buildResp, err := c.mobyClient.ImageBuild(context.Background(), contextArchive, mobyclient.ImageBuildOptions{
-		Context:        contextArchive,
-		Dockerfile:     *p.Config.DockerFile,
-		Remove:         true,
-		SuppressOutput: suppressOutput,
-		Tags:           []string{tag},
-	})
+	buildResp, err := c.mobyClient.ImageBuild(context.Background(), contextArchive, *buildOpts)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer func() {
-		if err := buildResp.Body.Close(); err != nil {
+		if err != nil {
+			return
+		}
+
+		if err = buildResp.Body.Close(); err != nil {
 			slog.Error("could not close build response", "error", err)
 		}
 	}()
 
 	if suppressOutput {
-		fmt.Println("Building image and starting container...")
+		fmt.Printf("Building image using %s...\n", buildOpts.Dockerfile)
 	}
 
 	decoder := json.NewDecoder(buildResp.Body)
@@ -93,11 +109,12 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 			Error  string `json:"error"`
 		}
 
-		if err := decoder.Decode(&msg); err == io.EOF {
+		if err = decoder.Decode(&msg); err == io.EOF {
+			err = nil
 			break
 		} else if err != nil {
 			slog.Error("error decoding JSON", "context", err)
-			panic(err)
+			return err
 		}
 
 		// Maybe add fluff to the output to make it prettier?
@@ -108,6 +125,8 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 			fmt.Printf("builder: [ERROR] %s\n", msg.Error)
 		}
 	}
+
+	return err
 }
 
 // PullContainerImage pulls the OCI image from a remtoe registry so it
