@@ -115,13 +115,18 @@ func (c *Client) BuildContainerImage(p *writ.Parser, tag string, suppressOutput 
 //
 // TODO: Implement a privilege function to support authentication so
 // images can be pulled from private repositories
-func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
+func (c *Client) PullContainerImage(tag string, suppressOutput bool) (err error) {
+	slog.Debug("pulling image tag from remote registry", "tag", tag)
 	fmt.Printf("Pulling %s from remote registry...\n", tag)
 	pullResp, err := c.mobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer func() {
+		if err != nil {
+			return
+		}
+
 		if err := pullResp.Close(); err != nil {
 			slog.Error("could not close pull response", "error", err)
 		}
@@ -129,15 +134,17 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) {
 
 	if suppressOutput {
 		if err := pullResp.Wait(context.Background()); err != nil {
-			panic(err)
+			return err
 		}
 	} else {
 		stdoutFd := os.Stdout.Fd()
 		if err := jsonmessage.DisplayJSONMessagesStream(pullResp, os.Stdout, stdoutFd, term.IsTerminal(int(stdoutFd)), nil); err != nil {
 			slog.Error("error encountered while pulling image", "tag", tag, "error", err)
-			panic(err)
+			return err
 		}
 	}
+
+	return err
 }
 
 // buildContextExcludesList builds a list of files to be excluded in
