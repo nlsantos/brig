@@ -129,6 +129,14 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 	return err
 }
 
+// BuildDevcontainerImage builds an OCI image based on options in a
+// devcontainer.json.
+//
+// This is a very thin wrapper over BuildContainerImage.
+func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, suppressOutput bool) error {
+	return c.BuildContainerImage(*p.Config.Context, *p.Config.DockerFile, imageTag, nil, suppressOutput)
+}
+
 // PullContainerImage pulls the OCI image from a remtoe registry so it
 // can be used in the creation of a devcontainer.
 //
