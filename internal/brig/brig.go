@@ -144,6 +144,20 @@ func NewCommand(appName string, appVersion string) {
 		}
 		trillClient.StartContainer(&parser, imageTag, imageName)
 
+	case parser.Config.DockerComposeFile != nil && len(*parser.Config.DockerComposeFile) > 0:
+		slog.Warn("SUPPORT FOR COMPOSER PROJECTS IS INCOMPLETE")
+		err := trillClient.DeployComposerProject(&parser, imageName, ImageTagPrefix, cmd.suppressOutput)
+		if err != nil {
+			slog.Error("encountered an error while trying to build a Compose project", "error", err)
+		}
+		defer func() {
+			if err := trillClient.TeardownComposerProject(); err != nil {
+				slog.Error("encountered an error while trying to tear down the Compose project", "error", err)
+				panic(err)
+			}
+		}()
+		slog.Error("support for Composer projects is incomplete")
+
 	case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 		imageTag = *parser.Config.Image
 		if err := trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
