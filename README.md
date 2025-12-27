@@ -18,8 +18,8 @@
 
 Before installing `brig`, ensure you have the following:
 
-- **Container Engine:** A running instance of [Podman](https://podman.io/) (highly recommended) or Docker.
-- **Git:** Required for processing repository metadata (if working with version-controlled codebases).
+- **OCI container runtime that implements Docker's REST API:** A running instance of [podman](https://podman.io/) (highly recommended) or Docker.
+- **An accessible networking socket:** See [instructions for enabling podman's socket on *nix](https://github.com/containers/podman/blob/main/docs/tutorials/socket_activation.md).
 
 ## Quick start
 
