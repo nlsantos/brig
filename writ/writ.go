@@ -259,6 +259,21 @@ func (p *Parser) normalizeValues() error {
 		*p.Config.DockerFile = filepath.ToSlash(buildablePath)
 	}
 
+	if p.Config.DockerComposeFile != nil {
+		var composeFiles []string
+		for _, compose := range *p.Config.DockerComposeFile {
+			buildablePath, err := filepath.Rel(*p.Config.Context, filepath.Join(filepath.Dir(p.Filepath), compose))
+			if err != nil {
+				slog.Error("unable to build relative path", "root/dockerComposeFile[]", compose, "error", err)
+				return err
+			}
+			slog.Debug("converting value to buildable path", "root/dockerComposeFile", compose, "actual", buildablePath)
+			// ToSlash is necessary for usage on Windows
+			composeFiles = append(composeFiles, filepath.ToSlash(buildablePath))
+		}
+		*p.Config.DockerComposeFile = composeFiles
+	}
+
 	if len(p.Config.ForwardPorts) > 0 {
 		slog.Debug("sorting out forwardPorts")
 		val := p.defaultValues["otherPortsAttributes"]
