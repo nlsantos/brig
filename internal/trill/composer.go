@@ -25,6 +25,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,9 +33,10 @@ import (
 	composetypes "github.com/compose-spec/compose-go/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/heimdalr/dag"
-
 	dockerspecs "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
 	mobyclient "github.com/moby/moby/client"
 	"github.com/nlsantos/brig/writ"
 )
@@ -346,7 +348,9 @@ func (c *Client) convertNetworkConfig(networkCfg composetypes.NetworkConfig) (*m
 	return &nco, nil
 }
 
-func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (err error) {
+func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (retval ComposerServiceReturn) {
+	slog.Debug(spew.Sdump(serviceCfg))
+
 	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
 	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
 	slog.Debug("converting service config to Moby equivalents", "name", containerName)
@@ -358,16 +362,25 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	if serviceCfg.Build != nil {
 		buildOpts, err := c.buildServiceBuildOpts(serviceCfg.Build, suppressOutput)
 		if err != nil {
-			return err
+			return ComposerServiceReturn{
+				WaitFunc: nil,
+				Error:    err,
+			}
 		}
 		buildOpts.Tags = append(buildOpts.Tags, imageTag)
-		if err = c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
-			return err
+		if err := c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
+			return ComposerServiceReturn{
+				WaitFunc: nil,
+				Error:    err,
+			}
 		}
 		containerCfg.Image = imageTag
 	} else if len(serviceCfg.Image) > 0 {
-		if err = c.PullContainerImage(serviceCfg.Image, suppressOutput); err != nil {
-			return err
+		if err := c.PullContainerImage(serviceCfg.Image, suppressOutput); err != nil {
+			return ComposerServiceReturn{
+				WaitFunc: nil,
+				Error:    err,
+			}
 		}
 		containerCfg.Image = serviceCfg.Image
 	}
@@ -407,24 +420,43 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	})
 	if err != nil {
 		slog.Error("encountered an error creating a container", "error", err)
-		return err
+		return ComposerServiceReturn{
+			WaitFunc: nil,
+			Error:    err,
+		}
 	}
 	slog.Debug("Composer container created successfully", "id", createResp.ID)
 
 	slog.Debug("attempting to start Composer container", "id", createResp.ID)
 	if _, err = c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
 		slog.Error("encountered an error while trying to start Composer container", "id", createResp.ID)
-		return err
+		return ComposerServiceReturn{
+			WaitFunc: nil,
+			Error:    err,
+		}
 	}
 	slog.Debug("Composer container started successfully", "id", createResp.ID)
-	return nil
+	return ComposerServiceReturn{
+		WaitFunc: nil,
+		Error:    nil,
+	}
+}
+
+type ComposerServiceWaitFunc func() error
+
+type ComposerServiceReturn struct {
+	WaitFunc *ComposerServiceWaitFunc
+	Error    error
 }
 
 func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, suppressOutput bool) error {
+	var errChan chan error
+	var waitFuncs []ComposerServiceWaitFunc
+
 	roots := servicesDAG.GetRoots()
 	for len(roots) > 0 {
 		var wg sync.WaitGroup
-		errChan := make(chan error, len(roots))
+		returnChan := make(chan ComposerServiceReturn, len(roots))
 
 		for raw := range maps.Values(roots) {
 			serviceCfg, ok := raw.(*composetypes.ServiceConfig)
@@ -435,15 +467,18 @@ func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, im
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				errChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
+				returnChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
 			}()
 		}
 		wg.Wait()
-		close(errChan)
+		close(returnChan)
 
-		for err := range errChan {
-			if err != nil {
-				return err
+		for retval := range returnChan {
+			if retval.WaitFunc != nil {
+				waitFuncs = append(waitFuncs, *retval.WaitFunc)
+			}
+			if retval.Error != nil {
+				return retval.Error
 			}
 		}
 
