@@ -38,6 +38,7 @@ type ExitCode int
 // Exiting brig returns one of these values to the shell
 const (
 	ExitNormal ExitCode = iota
+	ExitError
 	ExitNonValidDevcontainerJSON
 	ExitNoSocketFound
 	ExitErrorParsingFlags
@@ -135,40 +136,44 @@ func NewCommand(appName string, appVersion string) {
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	imageName := createImageTagBase(&parser)
 
+	var err error
 	var imageTag string
 	switch {
 	case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
 		imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-		if err := trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
-			panic(err)
+		if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
+			slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
+		} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+			slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 		}
-		trillClient.StartContainer(&parser, imageTag, imageName)
 
 	case parser.Config.DockerComposeFile != nil && len(*parser.Config.DockerComposeFile) > 0:
 		slog.Warn("SUPPORT FOR COMPOSER PROJECTS IS INCOMPLETE")
-		err := trillClient.DeployComposerProject(&parser, imageName, ImageTagPrefix, cmd.suppressOutput)
+		err = trillClient.DeployComposerProject(&parser, imageName, ImageTagPrefix, cmd.suppressOutput)
 		if err != nil {
 			slog.Error("encountered an error while trying to build a Compose project", "error", err)
+		} else if err = trillClient.TeardownComposerProject(); err != nil {
+			slog.Error("encountered an error while trying to tear down the Compose project", "error", err)
 		}
-		defer func() {
-			if err := trillClient.TeardownComposerProject(); err != nil {
-				slog.Error("encountered an error while trying to tear down the Compose project", "error", err)
-				panic(err)
-			}
-		}()
-		slog.Error("support for Composer projects is incomplete")
 
 	case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 		imageTag = *parser.Config.Image
-		if err := trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
-			panic(err)
+		if err = trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
+			slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
+		} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+			slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 		}
-		trillClient.StartContainer(&parser, imageTag, imageName)
 
 	default:
 		slog.Error("devcontainer.json specifies an unsupported mode of operation; exiting")
 		os.Exit(int(ExitUnsupportedConfiguration))
 	}
+
+	if err != nil {
+		os.Exit(int(ExitError))
+	}
+
+	os.Exit(int(ExitNormal))
 }
 
 // Try to generate a distinct yet meaningful name for the generated
