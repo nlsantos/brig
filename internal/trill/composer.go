@@ -253,6 +253,7 @@ func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *compose
 func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.HostConfig {
 	isServiceContainer := *p.Config.Service == serviceCfg.Name
 	hostCfg := container.HostConfig{
+		PortBindings:   make(network.PortMap),
 		AutoRemove:     false, // This is handled when the project is torn down
 		CapAdd:         serviceCfg.CapAdd,
 		CapDrop:        serviceCfg.CapDrop,
@@ -283,8 +284,36 @@ func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes
 		hostCfg.ExtraHosts = append(hostCfg.ExtraHosts, fmt.Sprintf("%s:%s", host, addr))
 	}
 
-	for _, mount := range serviceCfg.Tmpfs {
-		hostCfg.Tmpfs[mount] = ""
+	for _, portCfg := range serviceCfg.Ports {
+		portNumInt, err := strconv.Atoi(portCfg.Published)
+		portNum := uint16(portNumInt)
+		if err != nil {
+			slog.Error("published port cannot be converted to an int", "service", serviceCfg.Name, "port", portCfg.Published)
+			continue
+		}
+		if portNum < 1023 {
+			portNum = c.PrivilegedPortElevator(portNum)
+		}
+		port := network.MustParsePort(fmt.Sprintf("%d/%s", portNum, portCfg.Protocol))
+		hostCfg.PortBindings[port] = []network.PortBinding{{
+			HostIP:   netip.MustParseAddr("127.0.0.1"),
+			HostPort: portCfg.Published,
+		}}
+	}
+
+	for _, tmpfs := range serviceCfg.Tmpfs {
+		hostCfg.Tmpfs[tmpfs] = ""
+	}
+
+	for _, volume := range serviceCfg.Volumes {
+		if volume.Type == "volume" && len(volume.Source) == 0 {
+			hostCfg.Mounts = append(hostCfg.Mounts, mount.Mount{
+				Type:   mount.TypeVolume,
+				Target: volume.Target,
+			})
+		} else {
+			hostCfg.Binds = append(hostCfg.Binds, volume.String())
+		}
 	}
 
 	if isServiceContainer && c.MakeMeRoot {
