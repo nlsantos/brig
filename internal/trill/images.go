@@ -25,6 +25,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/moby/go-archive"
@@ -119,7 +120,7 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 
 		// Maybe add fluff to the output to make it prettier?
 		if msg.Stream != "" && !suppressOutput {
-			fmt.Printf("builder: %s", msg.Stream)
+			fmt.Printf("builder: %s", strings.ReplaceAll(msg.Stream, "\n", "\r\n"))
 		}
 		if msg.Error != "" {
 			fmt.Printf("builder: [ERROR] %s\n", msg.Error)
