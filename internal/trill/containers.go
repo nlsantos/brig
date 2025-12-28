@@ -19,6 +19,7 @@ package trill
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -26,6 +27,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"syscall"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
@@ -171,13 +173,13 @@ func (c *Client) attachHostTerminalToContainer(attachResp *mobyclient.ContainerA
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if _, err := io.Copy(os.Stdout, attachResp.Reader); err != nil {
+		if _, err := io.Copy(os.Stdout, attachResp.Reader); err != nil && err != io.EOF {
 			slog.Error("encountered an error copying container output to stdout", "error", err)
 		}
 	}()
 	go func() {
-		if _, err := io.Copy(attachResp.Conn, os.Stdin); err != nil {
-			panic(err)
+		if _, err := io.Copy(attachResp.Conn, os.Stdin); err != nil && !errors.Is(err, syscall.EPIPE) {
+			slog.Error("encountered an error copying terminal input to container", "error", err)
 		}
 	}()
 
