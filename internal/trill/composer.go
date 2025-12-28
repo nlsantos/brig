@@ -92,18 +92,23 @@ func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTag
 	}
 
 	if err := c.createComposerNetworks(c.composerProject.Networks); err != nil {
+		slog.Error("encountered an error while attempting to create network(s)", "error", err)
 		return err
 	}
 
 	if err := c.createComposerVolumes(c.composerProject.Volumes); err != nil {
+		slog.Error("encountered an error while attempting to create service volume(s)", "error", err)
 		return err
 	}
 
 	spinUpDAG, err := c.servicesDAG.Copy()
 	if err != nil {
+		slog.Error("could not duplicate services DAG", "error", err)
 		return nil
 	}
+
 	if err := c.createComposerServices(p, spinUpDAG, imageTagPrefix, suppressOutput); err != nil {
+		slog.Error("encountered an error while trying to spin up service(s)", "error", err)
 		return err
 	}
 
