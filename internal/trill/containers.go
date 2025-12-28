@@ -36,24 +36,31 @@ import (
 	"golang.org/x/term"
 )
 
-// StartContainer starts an existing container and attaches the
-// current terminal to it to enable its usage.
+// StartDevcontainerContainer starts and attaches to a container based
+// on configuration from devcontainer.json.
 //
 // Requires metadata parsed from a devcontainer.json config, the
 // tag/image name for the OCI image to use as base, and a name for the
 // created container.
-func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string) {
-	slog.Debug("attempting to start and attach to container", "tag", tag, "name", containerName)
-	containerCfg := c.buildContainerConfig(p, tag)
+func (c *Client) StartDevcontainerContainer(p *writ.Parser, imageTag string, containerName string) error {
+	slog.Debug("attempting to start and attach to devcontainer", "tag", imageTag, "name", containerName)
+	containerCfg := c.buildContainerConfig(p, imageTag)
 	hostCfg := c.buildHostConfig(p)
 
 	if err := c.bindAppPorts(p, containerCfg, hostCfg); err != nil {
 		slog.Error("encountered an error binding appPorts items", "error", err)
-		panic(err)
+		return err
 	}
+
+	return c.StartContainer(p, containerCfg, hostCfg, containerName)
+}
+
+// StartContainer starts an existing container and attaches the
+// current terminal to it to enable its usage.
+func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string) error {
 	if err := c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
 		slog.Error("encountered an error binding forwardPorts items", "error", err)
-		panic(err)
+		return err
 	}
 	c.bindMounts(p, hostCfg)
 
@@ -68,7 +75,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	})
 	if err != nil {
 		slog.Error("encountered an error creating a container", "error", err)
-		panic(err)
+		return err
 	}
 	c.ContainerID = createResp.ID
 	slog.Debug("container created successfully", "id", c.ContainerID)
@@ -87,14 +94,14 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	})
 	if err != nil {
 		slog.Error("encountered an error attaching to the container", "error", err)
-		panic(err)
+		return err
 	}
 	slog.Debug("successfully attached to container", "id", c.ContainerID)
 	defer attachResp.Close()
 
 	restoreTerm, err := c.switchTerminalToRaw()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer restoreTerm()
 
@@ -105,6 +112,7 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 	// exposed by the devcontainer spec
 	if _, err := c.mobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
 		slog.Error("encountered an error while trying to start the container", "error", err)
+		return err
 	} else {
 		// Note that Docker apparently doesn't like resizing containers
 		// until after it's started (Podman seems to be fine with it).
@@ -114,6 +122,8 @@ func (c *Client) StartContainer(p *writ.Parser, tag string, containerName string
 		waitFunc()
 		slog.Debug("detached from container", "id", c.ContainerID)
 	}
+
+	return nil
 }
 
 // SetInitialContainerSize sets up the height and width of the
