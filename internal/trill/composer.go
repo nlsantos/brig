@@ -373,6 +373,30 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	}
 
 	slog.Debug("creating Composer service container", "name", containerName)
+	// Service containers get a bit of special treatment
+	if *p.Config.Service == serviceCfg.Name {
+		var wg sync.WaitGroup
+		errChan := make(chan error, 1)
+		hostCfg.PortBindings = make(network.PortMap)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errChan <- c.StartContainer(p, containerCfg, hostCfg, containerName)
+		}()
+		waitFunc := func() error {
+			wg.Wait()
+			close(errChan)
+			for err := range errChan {
+				return err
+			}
+			return nil
+		}
+		return ComposerServiceReturn{
+			WaitFunc: (*ComposerServiceWaitFunc)(&waitFunc),
+			Error:    nil,
+		}
+	}
+
 	slog.Debug("using container config", "config", containerCfg)
 	slog.Debug("using host config", "config", hostCfg)
 	ctx := context.Background()
@@ -430,6 +454,25 @@ func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, im
 		}
 
 		roots = servicesDAG.GetRoots()
+	}
+
+	var wg sync.WaitGroup
+	errChan = make(chan error, len(waitFuncs))
+	slog.Debug("trawling through service wait functions...")
+	for _, waitFunc := range waitFuncs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errChan <- waitFunc()
+		}()
+	}
+	wg.Wait()
+	close(errChan)
+	slog.Debug("service wait functions completed; checking for returned errors...")
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
