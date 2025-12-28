@@ -112,6 +112,14 @@ func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTag
 
 func (c *Client) TeardownComposerProject() error {
 	slog.Debug("tearing down resources related to the Composer project")
+	teardownDAG, err := c.servicesDAG.Copy()
+	if err != nil {
+		return err
+	}
+	if err := c.teardownComposerServices(teardownDAG); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 	for _, networkCfg := range c.composerProject.Networks {
 		slog.Debug("removing generated network", "network", networkCfg.Name)
@@ -120,13 +128,6 @@ func (c *Client) TeardownComposerProject() error {
 		}
 	}
 
-	teardownDAG, err := c.servicesDAG.Copy()
-	if err != nil {
-		return err
-	}
-	if err := c.teardownComposerServices(teardownDAG); err != nil {
-		return err
-	}
 	return nil
 }
 
