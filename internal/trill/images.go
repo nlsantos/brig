@@ -120,10 +120,12 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 
 		// Maybe add fluff to the output to make it prettier?
 		if msg.Stream != "" && !suppressOutput {
-			fmt.Printf("builder: %s", strings.ReplaceAll(msg.Stream, "\n", "\r\n"))
+			PrefixedPrintf := NewPrefixedPrintff("BUILD", imageTag)
+			PrefixedPrintf("%s", strings.ReplaceAll(msg.Stream, "\n", "\r\n"))
 		}
 		if msg.Error != "" {
-			fmt.Printf("builder: [ERROR] %s\n", msg.Error)
+			PrefixedPrintf := NewPrefixedPrintffError("BUILD")
+			PrefixedPrintf("%s\r\n", msg.Error)
 		}
 	}
 
@@ -166,7 +168,9 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) (err error)
 		}
 	} else {
 		stdoutFd := os.Stdout.Fd()
-		if err := jsonmessage.DisplayJSONMessagesStream(pullResp, os.Stdout, stdoutFd, term.IsTerminal(int(stdoutFd)), nil); err != nil {
+		isTerm := term.IsTerminal(int(stdoutFd))
+		streamWriter := NewPrefixedStreamWriter(os.Stdout, "PULL", tag)
+		if err := jsonmessage.DisplayJSONMessagesStream(pullResp, streamWriter, stdoutFd, isTerm, nil); err != nil {
 			slog.Error("error encountered while pulling image", "tag", tag, "error", err)
 			return err
 		}
