@@ -35,6 +35,7 @@ import (
 	"github.com/moby/moby/api/types/network"
 	mobyclient "github.com/moby/moby/client"
 	"github.com/nlsantos/brig/writ"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/term"
 )
 
@@ -73,7 +74,11 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
 		Config:     containerCfg,
 		HostConfig: hostCfg,
-		Name:       containerName,
+		Platform: &ocispec.Platform{
+			Architecture: c.Platform.Architecture,
+			OS:           c.Platform.OS,
+		},
+		Name: containerName,
 	})
 	if err != nil {
 		slog.Error("encountered an error creating a container", "error", err)

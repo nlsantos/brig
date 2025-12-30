@@ -32,6 +32,7 @@ import (
 	mobyclient "github.com/moby/moby/client"
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/nlsantos/brig/writ"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/term"
 )
 
@@ -74,8 +75,12 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 
 	if buildOpts == nil {
 		buildOpts = &mobyclient.ImageBuildOptions{
-			Context:        contextArchive,
-			Dockerfile:     dockerfilePath,
+			Context:    contextArchive,
+			Dockerfile: dockerfilePath,
+			Platforms: []ocispec.Platform{{
+				Architecture: c.Platform.Architecture,
+				OS:           c.Platform.OS,
+			}},
 			Remove:         true,
 			SuppressOutput: suppressOutput,
 			Tags:           []string{imageTag},
@@ -148,7 +153,12 @@ func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, suppres
 func (c *Client) PullContainerImage(tag string, suppressOutput bool) (err error) {
 	slog.Debug("pulling image tag from remote registry", "tag", tag)
 	fmt.Printf("Pulling %s from remote registry...\n", tag)
-	pullResp, err := c.mobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{})
+	pullResp, err := c.mobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{
+		Platforms: []ocispec.Platform{{
+			Architecture: c.Platform.Architecture,
+			OS:           c.Platform.OS,
+		}},
+	})
 	if err != nil {
 		return err
 	}
