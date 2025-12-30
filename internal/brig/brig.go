@@ -136,6 +136,10 @@ func NewCommand(appName string, appVersion string) {
 	}
 
 	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
+	trillClient.Platform = trill.Platform{
+		Architecture: cmd.Options.PlatformArch,
+		OS:           cmd.Options.PlatformOS,
+	}
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	imageName := createImageTagBase(&parser)
 
