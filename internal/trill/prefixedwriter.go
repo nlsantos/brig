@@ -25,27 +25,27 @@ import (
 	"github.com/fatih/color"
 )
 
-// NewFrefixedPrintfError returns a function that can be used in place
+// NewPrefixedPrintfError returns a function that can be used in place
 // of fmt.Printf when outputting errors; every invocation prints out a
 // standardized prefix before the rest of its arguments.
-func NewPrefixedPrintffError(action string) func(format string, a ...any) (n int, err error) {
+func NewPrefixedPrintfError(action string) func(format string, a ...any) (n int, err error) {
 	return func(format string, a ...any) (n int, err error) {
-		c_action := color.New(color.FgGreen).SprintFunc()
-		c_error := color.New(color.BgHiRed, color.FgBlack, color.Bold).SprintFunc()
-		params := []any{c_action(" " + action + " "), c_error(" ERROR ")}
+		cAction := color.New(color.FgGreen).SprintFunc()
+		cError := color.New(color.BgHiRed, color.FgBlack, color.Bold).SprintFunc()
+		params := []any{cAction(" " + action + " "), cError(" ERROR ")}
 		params = append(params, a...)
 		return fmt.Fprintf(color.Output, "%s %s "+format, params...)
 	}
 }
 
-// NewFrefixedPrintf returns a function that can be used in place of
+// NewPrefixedPrintf returns a function that can be used in place of
 // fmt.Printf; every invocation prints out a standardized prefix
 // before the rest of its arguments.
-func NewPrefixedPrintff(action string, context string) func(format string, a ...any) (n int, err error) {
+func NewPrefixedPrintf(action string, context string) func(format string, a ...any) (n int, err error) {
 	return func(format string, a ...any) (n int, err error) {
-		c_action := color.New(color.BgHiGreen, color.FgBlack).SprintFunc()
-		c_context := color.New(color.FgHiWhite).SprintFunc()
-		params := []any{c_action(" " + action + " "), c_context(context)}
+		cAction := color.New(color.BgHiGreen, color.FgBlack).SprintFunc()
+		cContext := color.New(color.FgHiWhite).SprintFunc()
+		params := []any{cAction(" " + action + " "), cContext(context)}
 		params = append(params, a...)
 		return fmt.Fprintf(color.Output, "%s %s "+format, params...)
 	}
@@ -62,9 +62,9 @@ type StreamWriter struct {
 // NewPrefixedStreamWriter returns a standardized prefixed writer for
 // streams.
 func NewPrefixedStreamWriter(w io.Writer, action string, context string) *StreamWriter {
-	c_action := color.New(color.BgHiGreen, color.FgBlack).SprintFunc()
-	c_context := color.New(color.FgHiWhite).SprintFunc()
-	prefix := fmt.Sprintf("%s %s ", c_action(" "+action+" "), c_context(context))
+	cAction := color.New(color.BgHiGreen, color.FgBlack).SprintFunc()
+	cContext := color.New(color.FgHiWhite).SprintFunc()
+	prefix := fmt.Sprintf("%s %s ", cAction(" "+action+" "), cContext(context))
 	return NewStreamWriter(w, prefix)
 }
 

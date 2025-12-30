@@ -115,15 +115,15 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 	if _, err := c.mobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
 		slog.Error("encountered an error while trying to start the container", "error", err)
 		return err
-	} else {
-		// Note that Docker apparently doesn't like resizing containers
-		// until after it's started (Podman seems to be fine with it).
-		c.SetInitialContainerSize()
-		slog.Debug("container started successfully", "id", c.ContainerID)
-
-		waitFunc()
-		slog.Debug("detached from container", "id", c.ContainerID)
 	}
+
+	// Note that Docker apparently doesn't like resizing containers
+	// until after it's started (Podman seems to be fine with it).
+	c.SetInitialContainerSize()
+	slog.Debug("container started successfully", "id", c.ContainerID)
+
+	waitFunc()
+	slog.Debug("detached from container", "id", c.ContainerID)
 
 	return nil
 }
@@ -256,7 +256,6 @@ func (c *Client) bindAppPorts(p *writ.Parser, containerCfg *container.Config, ho
 					return fmt.Errorf("could not convert privileged port into an unprivileged one: %#v", nativePort)
 				}
 				containerCfg.ExposedPorts[unprivilegedPort] = set
-			} else {
 			}
 			containerCfg.ExposedPorts[network.MustParsePort(port.Port())] = set
 		}

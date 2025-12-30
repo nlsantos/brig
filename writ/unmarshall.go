@@ -59,6 +59,7 @@ func (a *AppPort) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-end
 }
 
+// UnmarshalJSON for the DockerComposeFile type
 func (d *DockerComposeFile) UnmarshalJSON(data []byte) error {
 	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {

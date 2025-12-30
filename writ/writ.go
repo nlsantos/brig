@@ -350,11 +350,11 @@ func (p *Parser) setDefaultValues() error {
 
 	// Use the current working directory as context for builds if
 	// none is given
-	if cwd, err := os.Getwd(); err != nil {
+	cwd, err := os.Getwd()
+	if err != nil {
 		return err
-	} else {
-		p.Config.Context = &cwd
 	}
+	p.Config.Context = &cwd
 
 	defPortAttributes := PortAttributes{
 		Label:            nil,

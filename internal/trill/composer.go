@@ -41,13 +41,25 @@ import (
 	"github.com/nlsantos/brig/writ"
 )
 
-type ServiceWalker struct{}
+// ComposerServiceWaitFunc is a type representing the signature of the
+// function createComposerService could return in a
+// ComposerServiceReturn if required.
+type ComposerServiceWaitFunc func() error
 
-func (w ServiceWalker) Visit(v dag.Vertexer) {
-	vertexID, _ := v.Vertex()
-	spew.Dump(vertexID)
+// ComposerServiceReturn is a struct that createComposerService
+// returns; it consists of a function that might need to be ran to
+// ensure the service creation completes succesfully, and an error (if
+// needed).
+type ComposerServiceReturn struct {
+	WaitFunc *ComposerServiceWaitFunc
+	Error    error
 }
 
+// DeployComposerProject provisions a Composer project as referenced
+// by a devcontainer.json configuration.
+//
+// It is not dissimlar for running `docker compose up` inside your
+// codebase.
 func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTagPrefix string, suppressOutput bool) error {
 	projOptions, err := compose.NewProjectOptions(
 		[]string(*p.Config.DockerComposeFile),
@@ -117,6 +129,11 @@ func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTag
 	return nil
 }
 
+// TeardownComposerProject tears down a provisioned Composer project's
+// resources.
+//
+// It is not dissimlar to running `docker compose down` inside your
+// codebase.
 func (c *Client) TeardownComposerProject() error {
 	slog.Debug("tearing down resources related to the Composer project")
 	teardownDAG, err := c.servicesDAG.Copy()
@@ -138,29 +155,11 @@ func (c *Client) TeardownComposerProject() error {
 	return nil
 }
 
-func (c *Client) createComposerNetworks(networks map[string]composetypes.NetworkConfig) error {
-	for _, networkCfg := range networks {
-		// TODO: Look up how this is supposed to be handled in the Compose spec
-		if networkCfg.External.External {
-			slog.Debug("network defines an unsupported External configuration", "network", networkCfg.Name)
-			continue
-		}
-
-		networkCreateOpts, err := c.convertNetworkConfig(networkCfg)
-		if err != nil {
-			return err
-		}
-		res, err := c.mobyClient.NetworkCreate(context.Background(), networkCfg.Name, *networkCreateOpts)
-		if err != nil {
-			return err
-		}
-		for _, warning := range res.Warning {
-			slog.Warn(warning)
-		}
-	}
-	return nil
-}
-
+// buildServiceBuildOpts creates a mobyclient.ImageBuildOptions from a
+// composetypes.BuildConfig; the result is used when provisioning the
+// container for the target service.
+//
+// It returns the first error it encounters.
 func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppressOutput bool) (buildOpts *mobyclient.ImageBuildOptions, err error) {
 	if buildCfg == nil {
 		return nil, nil
@@ -200,6 +199,9 @@ func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppr
 	return buildOpts, err
 }
 
+// buildServiceContainerConfig creates a container.Config based on a
+// composetypes.ServiceConfig; it is eventually used to provision the
+// container for the target service.
 func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.Config {
 	isServiceContainer := *p.Config.Service == serviceCfg.Name
 
@@ -348,6 +350,45 @@ func (c *Client) convertNetworkConfig(networkCfg composetypes.NetworkConfig) (*m
 	return &nco, nil
 }
 
+// createComposerNetworks provisions networks declared by a Composer
+// configuration.
+//
+// Returns the first error it encounters (if any), and is liable to
+// leave to Composer project in an indeterminate state.
+func (c *Client) createComposerNetworks(networks map[string]composetypes.NetworkConfig) error {
+	for _, networkCfg := range networks {
+		// TODO: Look up how this is supposed to be handled in the Compose spec
+		if networkCfg.External.External {
+			slog.Debug("network defines an unsupported External configuration", "network", networkCfg.Name)
+			continue
+		}
+
+		networkCreateOpts, err := c.convertNetworkConfig(networkCfg)
+		if err != nil {
+			return err
+		}
+		res, err := c.mobyClient.NetworkCreate(context.Background(), networkCfg.Name, *networkCreateOpts)
+		if err != nil {
+			return err
+		}
+		for _, warning := range res.Warning {
+			slog.Warn(warning)
+		}
+	}
+	return nil
+}
+
+// createComposerService provisions a single Composer service, and is
+// intended to be called by createComposerServices when it walks a DAG
+// of services.
+//
+// On return, if the service it provisioned requires it, the WaitFunc
+// field of its return value is populated with a function that needs
+// to be run to completion to ensure the successful provisioning and
+// functioning of its target service.
+//
+// If it encounters an error, the Error field of its return value is
+// populated.
 func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (retval ComposerServiceReturn) {
 	slog.Debug(spew.Sdump(serviceCfg))
 
@@ -442,13 +483,13 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	}
 }
 
-type ComposerServiceWaitFunc func() error
-
-type ComposerServiceReturn struct {
-	WaitFunc *ComposerServiceWaitFunc
-	Error    error
-}
-
+// createComposerServices iterates through servicesDAG breadth-first
+// and fires off provisioning functions until the DAG is exhausted. It
+// then collates function returns and runs any
+// ComposerServicesWaitFunc.
+//
+// It returns the first error it encounters, and is liable to leave
+// the Composer project in an indeterminate state.
 func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, suppressOutput bool) error {
 	var errChan chan error
 	var waitFuncs []ComposerServiceWaitFunc
@@ -614,7 +655,7 @@ func (c *Client) waitForServiceDependencies(dependsOn *composetypes.DependsOnCon
 			defer ticker.Stop()
 			defer wg.Done()
 
-			var loopCtr uint = 0
+			var loopCtr uint
 			for range ticker.C {
 				slog.Debug("inspecting container state", "service", containerName)
 				inspectRes, err := c.mobyClient.ContainerInspect(ctx, containerName, mobyclient.ContainerInspectOptions{})

@@ -120,11 +120,11 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 
 		// Maybe add fluff to the output to make it prettier?
 		if msg.Stream != "" && !suppressOutput {
-			PrefixedPrintf := NewPrefixedPrintff("BUILD", imageTag)
+			PrefixedPrintf := NewPrefixedPrintf("BUILD", imageTag)
 			PrefixedPrintf("%s", strings.ReplaceAll(msg.Stream, "\n", "\r\n"))
 		}
 		if msg.Error != "" {
-			PrefixedPrintf := NewPrefixedPrintffError("BUILD")
+			PrefixedPrintf := NewPrefixedPrintfError("BUILD")
 			PrefixedPrintf("%s\r\n", msg.Error)
 		}
 	}

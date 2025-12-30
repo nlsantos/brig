@@ -83,6 +83,7 @@ var VersionText = heredoc.Doc(`
     There is NO WARRANTY, to the extent permitted by law.
 `)
 
+// Command holds state useful in brig's operations
 type Command struct {
 	Arguments []string
 	Options   struct {
