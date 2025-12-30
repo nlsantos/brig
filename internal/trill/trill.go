@@ -35,16 +35,24 @@ import (
 // actually produces a port number beyond the privileged port range.
 type PrivilegedPortElevator func(uint16) uint16
 
-// A Client holds metadata for communicating with Podman/Docker.
+// Client holds metadata for communicating with Podman/Docker.
 type Client struct {
 	ContainerID            string                 // The internal ID the API assigned to the created container
-	PrivilegedPortElevator PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
 	MakeMeRoot             bool                   // If true, will ensure that the current user gets mapped as root inside the container
+	Platform               Platform               // Platform details for any containers created
+	PrivilegedPortElevator PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
 	SocketAddr             string                 // The socket/named pipe used to communicate with the server
 
 	mobyClient      *mobyclient.Client
 	composerProject *composetypes.Project
 	servicesDAG     *dag.DAG
+}
+
+// Platform contains data on the target state of any created
+// containers
+type Platform struct {
+	Architecture string
+	OS           string
 }
 
 // NewClient returns a Client that's set to communicate with
