@@ -95,7 +95,7 @@ These are the known differences with the observed behavior of Visual Studio Code
 `brig` differs from the official spec regarding port forwarding and privilege elevation to strictly adhere to rootless security principles.
 
 - **No privilege elevation:** `brig` will not attempt to gain elevated privileges to bind low-numbered ports.
-- **Privileged ports remapping:** Instead of privilege elevation, `brig` offsets the port number on host side by a preset figure (defaults to `8000` but can be set via the `-o` or `--port-offset` flags).
+- **Privileged ports remapping:** Instead of privilege elevation, `brig` offsets the port number on host side by a preset figure (defaults to `8000` but can be set via the `-p` or `--port-offset` flags).
 - **`appPort` vs `forwardPorts`:** `brig` prefers `appPort` for predictable host mapping.
 
 For a detailed technical explanation of these design choices, see [docs/ports.md](docs/ports.md).

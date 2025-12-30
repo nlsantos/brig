@@ -91,7 +91,7 @@ type Command struct {
 		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
 		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
 		MakeMeRoot   bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
-		PortOffset   uint16        `getopt:"-o --port-offset=UINT number to offset privileged ports by"`
+		PortOffset   uint16        `getopt:"-p --port-offset=UINT number to offset privileged ports by"`
 		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
 		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
 		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`

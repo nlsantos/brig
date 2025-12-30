@@ -21,7 +21,7 @@
 ## naked expose), brig will increase the host side's port number by
 ## this amoutn and bind that port number instead. Default value set
 ## below.
-#port-offset = 8000           # can also be o=<NUM>
+#port-offset = 8000           # can also be p=<NUM>
 
 ## If true, maps your UID and GID to 0:0 inside the devcontainer;
 ## i.e., you will be root. This is currently Podman-only, and is
