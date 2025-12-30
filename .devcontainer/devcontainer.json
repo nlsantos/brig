@@ -1,6 +1,6 @@
 {
   "name": "brig",
-  "image": "golang:1.24.10-alpine",
+  "image": "golang:1.24.9-alpine",
   "containerEnv": {
     "HISTFILE": "${containerWorkspaceFolder}/.histfile"
   },
