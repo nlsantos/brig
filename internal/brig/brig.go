@@ -91,6 +91,8 @@ type Command struct {
 		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
 		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
 		MakeMeRoot   bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
+		PlatformArch string        `getopt:"-a --platform-arch target architecture for the container; defaults to amd64"`
+		PlatformOS   string        `getopt:"-o --platform-os target operating system for the container; defaults to linux"`
 		PortOffset   uint16        `getopt:"-p --port-offset=UINT number to offset privileged ports by"`
 		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
 		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
@@ -332,6 +334,16 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 		SortKeys:          true,
 		StringIndentation: true,
 	})))
+
+	if len(c.Options.PlatformArch) == 0 {
+		c.Options.PlatformArch = "amd64"
+	}
+	slog.Info("target container architecture", "arch", c.Options.PlatformArch)
+
+	if len(c.Options.PlatformOS) == 0 {
+		c.Options.PlatformOS = "linux"
+	}
+	slog.Info("target container operating system", "os", c.Options.PlatformOS)
 
 	if c.Options.PortOffset == 0 {
 		c.Options.PortOffset = PrivilegedPortOffset

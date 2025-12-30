@@ -1,7 +1,9 @@
 # Flags/config file for brig (https://github.com/nlsantos/brig) # -*- sh -*-
 # ---
-# Store as "${HOME}/.config/brigrc" or "${HOME}/.brigrc"(on *nix) or
-# "%USERPROFILE%/.brigrc" (on Windows)
+# Store as "${HOME}/.config/brigrc" or "${HOME}/.brigrc" (on *nix) or
+# "%USERPROFILE%/.brigrc" (on Windows).
+#
+# Uncomment lines and change values as needed.
 
 ## If true, enable ouputting Info level messages
 #verbose = true               # can also be v=true
@@ -14,6 +16,20 @@
 ## exiting; a non-zero exit code means that the devcontainer.json file
 ## it found failed validation or there was an error in parsing it
 #validate = true              # can also be V=true
+
+## The CPU architecture to target when: building an image based on a
+## Containerfile, asking for a manifest for a remote image, or when
+## creating a container.
+##
+## There is usually no need to change the default value.
+#platform-arch = amd64        # can also be a=<ARCH>
+
+## The operating system tag used when building an image based on a
+## Containerfile, asking for a manifest for a remote image, or when
+## creating a container.
+##
+## There is usually no need to change the default value.
+#platform-os = linux          # can also be o=<OS>
 
 ## Privileged ports (port numbers < 1023) will have their numbers
 ## increased by this amount on the host side; e.g., if a config
