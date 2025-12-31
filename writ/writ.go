@@ -316,17 +316,6 @@ func (p *Parser) normalizeValues() error {
 		p.Config.OverrideCommand = &defOverride
 	}
 
-	// Basically, this only gets set to "none" if done so explcitly.
-	if p.Config.ShutdownAction == nil {
-		var defShutdownAction ShutdownAction
-		if p.Config.DockerComposeFile == nil {
-			defShutdownAction = StopContainer
-		} else {
-			defShutdownAction = StopCompose
-		}
-		p.Config.ShutdownAction = &defShutdownAction
-	}
-
 	return nil
 }
 
@@ -371,6 +360,17 @@ func (p *Parser) setDefaultValues() error {
 	p.Config.Privileged = &defFalse
 	p.Config.UpdateRemoteUserUID = &defTrue
 	p.Config.WorkspaceFolder = &defWorkspacePath
+
+	// Basically, this only gets set to "none" if done so explcitly.
+	if p.Config.ShutdownAction == nil {
+		var defShutdownAction ShutdownAction
+		if p.Config.DockerComposeFile == nil {
+			defShutdownAction = StopContainer
+		} else {
+			defShutdownAction = StopCompose
+		}
+		p.Config.ShutdownAction = &defShutdownAction
+	}
 
 	return nil
 }
