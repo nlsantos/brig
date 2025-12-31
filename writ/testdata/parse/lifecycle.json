@@ -1,0 +1,12 @@
+{
+  "image": "golang",
+  "initializeCommand": "test",
+  "onCreateCommand": "test",
+  "updateContentCommand": "test",
+  "postCreateCommand": "test",
+  "postStartCommand": ["test"],
+  "postAttachCommand": {
+    "cmd1": "test",
+    "cmd2": ["test"]
+  }
+}

@@ -141,6 +141,47 @@ func TestParseForwardPorts(t *testing.T) {
 	}
 }
 
+// TestParseLifecycle parses a devcontainer.json that declares
+// lifecycle commands.
+func TestParseLifecycle(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "lifecycle.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing:", err)
+	}
+
+	assert.Empty(t, p.Config.InitializeCommand.StringArray)
+	assert.Empty(t, p.Config.OnCreateCommand.StringArray)
+	assert.Empty(t, p.Config.UpdateContentCommand.StringArray)
+	assert.Empty(t, p.Config.PostCreateCommand.StringArray)
+
+	assert.Empty(t, p.Config.InitializeCommand.ParallelCommands)
+	assert.Empty(t, p.Config.OnCreateCommand.ParallelCommands)
+	assert.Empty(t, p.Config.UpdateContentCommand.ParallelCommands)
+	assert.Empty(t, p.Config.PostCreateCommand.ParallelCommands)
+
+	assert.EqualValues(t, "test", *p.Config.InitializeCommand.String)
+	assert.EqualValues(t, "test", *p.Config.OnCreateCommand.String)
+	assert.EqualValues(t, "test", *p.Config.UpdateContentCommand.String)
+	assert.EqualValues(t, "test", *p.Config.PostCreateCommand.String)
+
+	assert.NotEmpty(t, p.Config.PostStartCommand.StringArray)
+	assert.Empty(t, p.Config.PostStartCommand.ParallelCommands)
+	assert.EqualValues(t, "test", p.Config.PostStartCommand.StringArray[0])
+
+	assert.Empty(t, p.Config.PostAttachCommand.String)
+	assert.Empty(t, p.Config.PostAttachCommand.StringArray)
+	assert.NotNil(t, p.Config.PostAttachCommand.ParallelCommands)
+
+	assert.EqualValues(t, "test", *(*p.Config.PostAttachCommand.ParallelCommands)["cmd1"].String)
+	assert.EqualValues(t, "test", (*p.Config.PostAttachCommand.ParallelCommands)["cmd2"].StringArray[0])
+}
+
 // TestParsePortsAttributes parses a devcontainer.json that declares
 // forwardPorts *AND* portsAttributes and validates that explicit port
 // attributes are able to override default values
