@@ -372,6 +372,11 @@ func (p *Parser) setDefaultValues() error {
 		p.Config.ShutdownAction = &defShutdownAction
 	}
 
+	if p.Config.WaitFor == nil {
+		defWaitFor := WaitForUpdateContentCommand
+		p.Config.WaitFor = &defWaitFor
+	}
+
 	return nil
 }
 
