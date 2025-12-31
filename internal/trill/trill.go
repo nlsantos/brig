@@ -60,6 +60,8 @@ type Client struct {
 	PrivilegedPortElevator    PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
 	SocketAddr                string                 // The socket/named pipe used to communicate with the server
 
+	attachResp      *mobyclient.ContainerAttachResult
+	isAttached      bool
 	mobyClient      *mobyclient.Client
 	composerProject *composetypes.Project
 	servicesDAG     *dag.DAG
@@ -94,6 +96,7 @@ func NewClient(socketAddr string, makeMeRoot bool) *Client {
 }
 
 func (c *Client) Close() (err error) {
+	c.attachResp.Close()
 	close(c.DevcontainerLifecycleChan)
 	if err = c.mobyClient.Close(); err != nil {
 		slog.Error("could not close Moby client", "error", err)
