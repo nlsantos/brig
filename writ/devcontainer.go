@@ -331,11 +331,11 @@ type WaitFor string
 
 // Supported values for WaitFor
 const (
-	InitializeCommand    WaitFor = "initializeCommand"
-	OnCreateCommand      WaitFor = "onCreateCommand"
-	PostCreateCommand    WaitFor = "postCreateCommand"
-	PostStartCommand     WaitFor = "postStartCommand"
-	UpdateContentCommand WaitFor = "updateContentCommand"
+	WaitForInitializeCommand    WaitFor = "initializeCommand"
+	WaitForOnCreateCommand      WaitFor = "onCreateCommand"
+	WaitForPostCreateCommand    WaitFor = "postCreateCommand"
+	WaitForPostStartCommand     WaitFor = "postStartCommand"
+	WaitForUpdateContentCommand WaitFor = "updateContentCommand"
 )
 
 // AppPort is a list of ports that are exposed by the container.
