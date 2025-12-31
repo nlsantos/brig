@@ -87,10 +87,15 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 	c.ContainerID = createResp.ID
 	slog.Debug("container created successfully", "id", c.ContainerID)
 
-	// Attaching to a container before it even starts is a way to get
-	// around possibly missing a log replay upon attachment. A symptom
-	// of that is needing to input something after the container is
-	// attached to, to get, say, the shell prompt to appear.
+	// "Cheat" a little bit by attaching to the container immediately
+	// after creation.
+	//
+	// Attaching to a container before it even starts prevents missing
+	// a log replay upon attachment.
+	//
+	// A symptom of that is needing to input something
+	// after the container is attached to, to get, say, the shell
+	// prompt to appear.
 	slog.Debug("attempting to attach to container", "id", c.ContainerID)
 	attachResp, err := c.mobyClient.ContainerAttach(ctx, c.ContainerID, mobyclient.ContainerAttachOptions{
 		Logs:   true,
@@ -104,15 +109,8 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 		return err
 	}
 	slog.Debug("successfully attached to container", "id", c.ContainerID)
-	defer attachResp.Close()
+	c.attachResp = &attachResp
 
-	restoreTerm, err := c.switchTerminalToRaw()
-	if err != nil {
-		return err
-	}
-	defer restoreTerm()
-
-	waitFunc := c.attachHostTerminalToContainer(&attachResp)
 
 	slog.Debug("attempting to start container", "id", c.ContainerID)
 	// TODO: Support the container initialization options/operations
@@ -121,74 +119,86 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 		slog.Error("encountered an error while trying to start the container", "error", err)
 		return err
 	}
-
-	// Note that Docker apparently doesn't like resizing containers
-	// until after it's started (Podman seems to be fine with it).
-	c.SetInitialContainerSize()
 	slog.Debug("container started successfully", "id", c.ContainerID)
-
-	waitFunc()
-	slog.Debug("detached from container", "id", c.ContainerID)
 
 	return nil
 }
 
-// SetInitialContainerSize sets up the height and width of the
-// container's pseudo-TTY, as well a hook to ensure that future
-// changes in the host terminal's dimensions are propageted to the
-// container.
+// AttachHostTerminalToDevcontainer attempts to route input from the
+// terminal into the container's pseudo-TTY, and redirect the
+// pseudo-TTY's output to the host terminal.
 //
-// Also, on Windows, it's apparently more reliable to get the terminal size
-// from stdout, as using stdin results in an invalid handle error.
-func (c *Client) SetInitialContainerSize() {
+// This allows usage of the container in a terminal as one would,
+// e.g., a regular shell
+func (c *Client) AttachHostTerminalToDevcontainer() (err error) {
+	slog.Debug("attempting to attach host terminal to container", "container", c.ContainerID)
+	if c.attachResp == nil {
+		return fmt.Errorf("attempted to attach host terminal without a container connection")
+	}
+
+	if c.isAttached {
+		slog.Debug("attempt to attach host terminal when it's already attached; no-op")
+		return nil
+	}
+
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("stdin is not a terminal")
+	}
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return fmt.Errorf("stdout is not a terminal")
+	}
+
+	c.isAttached = true
+
 	slog.Debug("attempting to resize container's pseudo-TTY")
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		slog.Error("encountered an error trying to get ther terminal's dimensions", "error", err)
-		panic(err)
+		return err
 	}
 
-	c.ResizeContainer(uint(h), uint(w)) // #nosec G115
+	if err = c.ResizeContainer(uint(h), uint(w)); err != nil { // #nosec G115
+		return err
+	}
 	slog.Debug("setting up hooks to handle terminal resizing")
 	c.listenForTerminalResize()
-}
 
-// ResizeContainer sets the container's internal pseudo-TTY height and
-// width to the passed in values.
-func (c *Client) ResizeContainer(h uint, w uint) {
-	if _, err := c.mobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
-		Height: h,
-		Width:  w,
-	}); err != nil {
-		panic(err)
+	slog.Debug("setting host terminal to raw mode")
+	restoreTerm, err := c.switchTerminalToRaw()
+	if err != nil {
+		return err
 	}
-}
+	defer restoreTerm()
 
-// attachHostTerminalToContainer attempts to route input from the
-// terminal into the container's pseudo-TTY, and redirect the
-// pseudo-TTY's output to the host terminal.
-//
-// Uses attachResp to facilitate the rerouting.
-//
-// This allows usage of the container in a terminal as one would,
-// e.g., a regular shell
-func (c *Client) attachHostTerminalToContainer(attachResp *mobyclient.ContainerAttachResult) func() {
 	slog.Debug("setting up terminal input/output")
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if _, err := io.Copy(os.Stdout, attachResp.Reader); err != nil && err != io.EOF {
+		if _, err := io.Copy(os.Stdout, c.attachResp.Reader); err != nil && err != io.EOF {
 			slog.Error("encountered an error copying container output to stdout", "error", err)
 		}
 	}()
 	go func() {
-		if _, err := io.Copy(attachResp.Conn, os.Stdin); err != nil && !errors.Is(err, syscall.EPIPE) {
+		if _, err := io.Copy(c.attachResp.Conn, os.Stdin); err != nil && !errors.Is(err, syscall.EPIPE) {
 			slog.Error("encountered an error copying terminal input to container", "error", err)
 		}
 	}()
 
-	return wg.Wait
+	wg.Wait()
+	slog.Debug("detached from container", "id", c.ContainerID)
+
+	return nil
+}
+
+// ResizeContainer sets the container's internal pseudo-TTY height and
+// width to the passed in values.
+func (c *Client) ResizeContainer(h uint, w uint) (err error) {
+	_, err = c.mobyClient.ContainerResize(context.Background(), c.ContainerID, mobyclient.ContainerResizeOptions{
+		Height: h,
+		Width:  w,
+	})
+	return err
 }
 
 // buildContainerConfig initializes and returns a Moby
@@ -375,9 +385,6 @@ func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
 func (c *Client) switchTerminalToRaw() (func(), error) {
 	slog.Debug("switching terminal to raw mode")
 	fd := int(os.Stdin.Fd())
-	if !term.IsTerminal(fd) {
-		return nil, fmt.Errorf("%#v is not a terminal", fd)
-	}
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
 		slog.Error("encountered an error while trying to switch terminal to raw mode", "error", err)
