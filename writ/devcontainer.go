@@ -90,7 +90,7 @@ type DevcontainerConfig struct {
 	// command is run before "onCreateCommand". If this is a single string, it will be run in a
 	// shell. If this is an array of strings, it will be run as a single command without shell.
 	// If this is an object, each provided command will be run in parallel.
-	InitializeCommand *Command `json:"initializeCommand,omitempty"`
+	InitializeCommand *LifecycleCommand `json:"initializeCommand,omitempty"`
 	// Mount points to set up when creating the container. See Docker's documentation for the
 	// --mount option for the supported syntax.
 	Mounts []MountElement `json:"mounts,omitempty"`
@@ -101,8 +101,8 @@ type DevcontainerConfig struct {
 	// will be run in a shell. If this is an array of strings, it will be run as a single
 	// command without shell. If this is an object, each provided command will be run in
 	// parallel.
-	OnCreateCommand      *Command        `json:"onCreateCommand,omitempty"`
-	OtherPortsAttributes *PortAttributes `json:"otherPortsAttributes,omitempty"`
+	OnCreateCommand      *LifecycleCommand `json:"onCreateCommand,omitempty"`
+	OtherPortsAttributes *PortAttributes   `json:"otherPortsAttributes,omitempty"`
 	// Array consisting of the Feature id (without the semantic version) of Features in the
 	// order the user wants them to be installed.
 	OverrideFeatureInstallOrder []string                  `json:"overrideFeatureInstallOrder,omitempty"`
@@ -111,17 +111,17 @@ type DevcontainerConfig struct {
 	// "postStartCommand". If this is a single string, it will be run in a shell. If this is an
 	// array of strings, it will be run as a single command without shell. If this is an object,
 	// each provided command will be run in parallel.
-	PostAttachCommand *Command `json:"postAttachCommand,omitempty"`
+	PostAttachCommand *LifecycleCommand `json:"postAttachCommand,omitempty"`
 	// A command to run after creating the container. This command is run after
 	// "updateContentCommand" and before "postStartCommand". If this is a single string, it will
 	// be run in a shell. If this is an array of strings, it will be run as a single command
 	// without shell. If this is an object, each provided command will be run in parallel.
-	PostCreateCommand *Command `json:"postCreateCommand,omitempty"`
+	PostCreateCommand *LifecycleCommand `json:"postCreateCommand,omitempty"`
 	// A command to run after starting the container. This command is run after
 	// "postCreateCommand" and before "postAttachCommand". If this is a single string, it will
 	// be run in a shell. If this is an array of strings, it will be run as a single command
 	// without shell. If this is an object, each provided command will be run in parallel.
-	PostStartCommand *Command `json:"postStartCommand,omitempty"`
+	PostStartCommand *LifecycleCommand `json:"postStartCommand,omitempty"`
 	// Passes the --privileged flag when creating the dev container.
 	Privileged *bool `json:"privileged,omitempty"`
 	// Remote environment variables to set for processes spawned in the container including
@@ -140,7 +140,7 @@ type DevcontainerConfig struct {
 	// before "postCreateCommand". If this is a single string, it will be run in a shell. If
 	// this is an array of strings, it will be run as a single command without shell. If this is
 	// an object, each provided command will be run in parallel.
-	UpdateContentCommand *Command `json:"updateContentCommand,omitempty"`
+	UpdateContentCommand *LifecycleCommand `json:"updateContentCommand,omitempty"`
 	// Controls whether on Linux the container's user should be updated with the local user's
 	// UID and GID. On by default when opening from a local folder.
 	UpdateRemoteUserUID *bool `json:"updateRemoteUserUID,omitempty"`
@@ -360,15 +360,25 @@ type CacheFrom struct {
 // "host:port_number".
 type ForwardPorts []string
 
-// Command represents the command to run locally (i.e Your host
-// machine, cloud VM) before anything else.
+// CommandBase represents lifecycle commands that can be set up to fire in
+// response to several lifecycle events.
 //
-// This command is run before "onCreateCommand". If this is a single
-// string, it will be run in a shell. If this is an array of strings,
-// it will be run as a single command without shell.  If this is an
-// object, each provided command will be run in parallel.
-type Command struct {
+// If String is non-nil, its value will be run in a shell. If
+// StringArray is not empty, its values will be run as a single
+// command without shell.
+type CommandBase struct {
 	String      *string
 	StringArray []string
-	UnionMap    map[string]*CacheFrom
+}
+
+// LifecycleCommand represents commands that can be set up to fire in response
+// to several lifecycle events.
+//
+// If String is non-nil, its value will be run in a shell. If
+// StringArray is not empty, its values will be run as a single
+// command without shell. If this is an object, each provided command
+// will be run in parallel.
+type LifecycleCommand struct {
+	CommandBase
+	ParallelCommands *map[string]CommandBase
 }
