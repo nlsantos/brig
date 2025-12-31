@@ -149,6 +149,8 @@ func NewCommand(appName string, appVersion string) {
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	imageName := createImageTagBase(&parser)
 
+	go cmd.LifecycleHandler(trillClient, &parser)
+
 	var imageTag string
 	switch {
 	case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
@@ -186,6 +188,30 @@ func NewCommand(appName string, appVersion string) {
 	}
 
 	os.Exit(int(ExitNormal))
+}
+
+func (cmd *Command) LifecycleHandler(c *trill.Client, p *writ.Parser) {
+	for event := range c.DevcontainerLifecycleChan {
+		switch event {
+		case trill.LifecycleInitialize:
+			slog.Error("lifecycle", "event", "init")
+
+		case trill.LifecycleOnCreate:
+			slog.Error("lifecycle", "event", "onCreate")
+
+		case trill.LifecycleUpdate:
+			slog.Error("lifecycle", "event", "update")
+
+		case trill.LifecyclePostCreate:
+			slog.Error("lifecycle", "event", "postCreate")
+
+		case trill.LifecyclePostStart:
+			slog.Error("lifecycle", "event", "postStart")
+
+		case trill.LifecyclePostAttach:
+			slog.Error("lifecycle", "event", "postAttach")
+		}
+	}
 }
 
 // Try to generate a distinct yet meaningful name for the generated
