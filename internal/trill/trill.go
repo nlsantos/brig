@@ -66,16 +66,19 @@ func NewClient(socketAddr string, makeMeRoot bool) *Client {
 		SocketAddr: socketAddr,
 	}
 
-	if mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr)); err == nil {
-		c.mobyClient = mobyClient
-		defer func() {
-			if err := c.mobyClient.Close(); err != nil {
-				slog.Error("could not close Moby client", "error", err)
-			}
-		}()
-	} else {
+	mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr))
+	if err != nil {
 		panic(err)
 	}
+	c.mobyClient = mobyClient
 
 	return c
+}
+
+func (c *Client) Close() (err error) {
+	close(c.DevcontainerLifecycleChan)
+	if err = c.mobyClient.Close(); err != nil {
+		slog.Error("could not close Moby client", "error", err)
+	}
+	return err
 }
