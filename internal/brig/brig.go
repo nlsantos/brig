@@ -106,6 +106,7 @@ type Command struct {
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) {
 	var cmd Command
+	var err error
 
 	cmd.parseOptions(appName, appVersion)
 	slog.Debug("command line options parsed", "opts", cmd.Options)
@@ -115,11 +116,11 @@ func NewCommand(appName string, appVersion string) {
 	slog.Debug("instantiating a parser for devcontainer.json", "path", targetDevcontainerJSON)
 
 	parser := writ.NewParser(targetDevcontainerJSON)
-	if err := parser.Validate(); err != nil {
+	if err = parser.Validate(); err != nil {
 		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
 		os.Exit(int(ExitNonValidDevcontainerJSON))
 	}
-	if err := parser.Parse(); err != nil {
+	if err = parser.Parse(); err != nil {
 		slog.Error("devcontainer.json could not be parsed", "path", targetDevcontainerJSON, "error", err)
 		os.Exit(int(ExitNonValidDevcontainerJSON))
 	}
@@ -143,7 +144,6 @@ func NewCommand(appName string, appVersion string) {
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	imageName := createImageTagBase(&parser)
 
-	var err error
 	var imageTag string
 	switch {
 	case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
