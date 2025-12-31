@@ -70,6 +70,9 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 	slog.Debug("using container config", "config", containerCfg)
 	slog.Debug("using host config", "config", hostCfg)
 
+	// Lifecycle: initialize
+	c.DevcontainerLifecycleChan <- LifecycleInitialize
+
 	ctx := context.Background()
 	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
 		Config:     containerCfg,
@@ -111,6 +114,10 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 	slog.Debug("successfully attached to container", "id", c.ContainerID)
 	c.attachResp = &attachResp
 
+	// Lifecycle hooks
+	c.DevcontainerLifecycleChan <- LifecycleOnCreate
+	c.DevcontainerLifecycleChan <- LifecycleUpdate
+	c.DevcontainerLifecycleChan <- LifecyclePostCreate
 
 	slog.Debug("attempting to start container", "id", c.ContainerID)
 	// TODO: Support the container initialization options/operations
@@ -185,6 +192,7 @@ func (c *Client) AttachHostTerminalToDevcontainer() (err error) {
 		}
 	}()
 
+	c.DevcontainerLifecycleChan <- LifecyclePostAttach
 	wg.Wait()
 	slog.Debug("detached from container", "id", c.ContainerID)
 
