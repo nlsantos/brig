@@ -33,7 +33,7 @@ import (
 )
 
 // ExitCode is a list of numeric exit codes used by brig
-type ExitCode int
+type ExitCode uint
 
 // Exiting brig returns one of these values to the shell
 const (
