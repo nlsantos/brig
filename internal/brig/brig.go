@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/go-git/go-git/v6"
@@ -149,7 +150,17 @@ func NewCommand(appName string, appVersion string) {
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	imageName := createImageTagBase(&parser)
 
-	go cmd.LifecycleHandler(trillClient, &parser)
+	var wg sync.WaitGroup
+	go func() {
+		errChan := make(chan error, 1)
+		cmd.lifecycleHandler(&wg, errChan, trillClient, &parser)
+		for err := range errChan {
+			if err != nil {
+				slog.Error("received error from lifecycle handler", "error", err)
+				os.Exit(int(ExitError))
+			}
+		}
+	}()
 
 	var imageTag string
 	switch {
@@ -187,29 +198,65 @@ func NewCommand(appName string, appVersion string) {
 		os.Exit(int(ExitError))
 	}
 
+	wg.Wait()
 	os.Exit(int(ExitNormal))
 }
 
-func (cmd *Command) LifecycleHandler(c *trill.Client, p *writ.Parser) {
+func (cmd *Command) lifecycleHandler(wg *sync.WaitGroup, errChan chan error, c *trill.Client, p *writ.Parser) {
 	for event := range c.DevcontainerLifecycleChan {
 		switch event {
 		case trill.LifecycleInitialize:
-			slog.Error("lifecycle", "event", "init")
+			slog.Debug("lifecycle", "event", "init")
+			if *p.Config.WaitFor == writ.WaitForInitializeCommand {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errChan <- c.AttachHostTerminalToDevcontainer()
+				}()
+			}
 
 		case trill.LifecycleOnCreate:
-			slog.Error("lifecycle", "event", "onCreate")
-
-		case trill.LifecycleUpdate:
-			slog.Error("lifecycle", "event", "update")
-
-		case trill.LifecyclePostCreate:
-			slog.Error("lifecycle", "event", "postCreate")
-
-		case trill.LifecyclePostStart:
-			slog.Error("lifecycle", "event", "postStart")
+			slog.Debug("lifecycle", "event", "onCreate")
+			if *p.Config.WaitFor == writ.WaitForOnCreateCommand {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errChan <- c.AttachHostTerminalToDevcontainer()
+				}()
+			}
 
 		case trill.LifecyclePostAttach:
-			slog.Error("lifecycle", "event", "postAttach")
+			slog.Debug("lifecycle", "event", "postAttach")
+
+		case trill.LifecyclePostCreate:
+			slog.Debug("lifecycle", "event", "postCreate")
+			if *p.Config.WaitFor == writ.WaitForPostCreateCommand {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errChan <- c.AttachHostTerminalToDevcontainer()
+				}()
+			}
+
+		case trill.LifecyclePostStart:
+			slog.Debug("lifecycle", "event", "postStart")
+			if *p.Config.WaitFor == writ.WaitForPostStartCommand {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errChan <- c.AttachHostTerminalToDevcontainer()
+				}()
+			}
+
+		case trill.LifecycleUpdate:
+			slog.Debug("lifecycle", "event", "update")
+			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errChan <- c.AttachHostTerminalToDevcontainer()
+				}()
+			}
 		}
 	}
 }
