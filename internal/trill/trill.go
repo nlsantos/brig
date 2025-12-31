@@ -25,6 +25,20 @@ import (
 	mobyclient "github.com/moby/moby/client"
 )
 
+// LifecycleEvents is a list of event codes that are fired at several
+// points during a devcontainer's lifecycle
+type LifecycleEvents uint
+
+// During a devcontainer's lifecycle, several events are tracked
+const (
+	LifecycleInitialize LifecycleEvents = iota
+	LifecycleOnCreate
+	LifecycleUpdate
+	LifecyclePostCreate
+	LifecyclePostStart
+	LifecyclePostAttach
+)
+
 // PrivilegedPortElevator is a function that Client can use to convert
 // privileged ports it encounters into non-privileged ports.
 //
@@ -37,11 +51,14 @@ type PrivilegedPortElevator func(uint16) uint16
 
 // Client holds metadata for communicating with Podman/Docker.
 type Client struct {
-	ContainerID            string                 // The internal ID the API assigned to the created container
-	MakeMeRoot             bool                   // If true, will ensure that the current user gets mapped as root inside the container
-	Platform               Platform               // Platform details for any containers created
-	PrivilegedPortElevator PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
-	SocketAddr             string                 // The socket/named pipe used to communicate with the server
+	ContainerID string // The internal ID the API assigned to the created container
+	// Channel to broadcast the devcontainer's (in a Composer project,
+	// the container named in the service field) lifecycle events on
+	DevcontainerLifecycleChan chan (LifecycleEvents)
+	MakeMeRoot                bool                   // If true, will ensure that the current user gets mapped as root inside the container
+	Platform                  Platform               // Platform details for any containers created
+	PrivilegedPortElevator    PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
+	SocketAddr                string                 // The socket/named pipe used to communicate with the server
 
 	mobyClient      *mobyclient.Client
 	composerProject *composetypes.Project
@@ -62,8 +79,9 @@ type Platform struct {
 // panics.
 func NewClient(socketAddr string, makeMeRoot bool) *Client {
 	c := &Client{
-		MakeMeRoot: makeMeRoot,
-		SocketAddr: socketAddr,
+		DevcontainerLifecycleChan: make(chan LifecycleEvents),
+		MakeMeRoot:                makeMeRoot,
+		SocketAddr:                socketAddr,
 	}
 
 	mobyClient, err := mobyclient.New(mobyclient.WithHost(c.SocketAddr))
