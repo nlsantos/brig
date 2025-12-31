@@ -137,6 +137,11 @@ func NewCommand(appName string, appVersion string) {
 	}
 
 	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
+	defer func() {
+		if err = trillClient.Close(); err != nil {
+			slog.Error("received an error while closing the trill client", "error", err)
+		}
+	}()
 	trillClient.Platform = trill.Platform{
 		Architecture: cmd.Options.PlatformArch,
 		OS:           cmd.Options.PlatformOS,
