@@ -59,6 +59,63 @@ func (a *AppPort) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-end
 }
 
+// UnmarshalJSON for the CacheFrom type
+func (c *CacheFrom) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	switch v := raw.(type) {
+	case []any:
+		var elements []string
+		for _, x := range v {
+			switch y := x.(type) {
+			case string:
+				elements = append(elements, y)
+			default:
+				return fmt.Errorf("unsupported type: %#v for value %#v", y, x)
+			}
+		}
+		c.StringArray = elements
+
+	case string:
+		*c.String = v
+
+	default:
+		return fmt.Errorf("unsupported type: %#v for value %#v", v, raw)
+	}
+
+	return nil
+}
+
+// UnmarshalJSON for the CommandBase type
+func (c *CommandBase) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	switch v := raw.(type) {
+	case []any:
+		var elements []string
+		for _, x := range v {
+			switch y := x.(type) {
+			case string:
+				elements = append(elements, y)
+			default:
+				return fmt.Errorf("unsupported type: %#v for value %#v", y, x)
+			}
+		}
+		c.StringArray = elements
+
+	case string:
+		c.String = &v
+	}
+
+	return nil
+}
+
 // UnmarshalJSON for the DockerComposeFile type
 func (d *DockerComposeFile) UnmarshalJSON(data []byte) error {
 	var raw any
@@ -123,6 +180,30 @@ func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
 	*f = elements
 	return nil
 	// jscpd:ignore-end
+}
+
+// UnmarshalJSON for the LifecycleCommand type
+func (l *LifecycleCommand) UnmarshalJSON(data []byte) error {
+	err := l.CommandBase.UnmarshalJSON(data)
+	if err != nil || l.String != nil || len(l.StringArray) > 0 {
+		return err
+	}
+
+	var objMap map[string]json.RawMessage
+	if err := json.Unmarshal(data, &objMap); err != nil {
+		return err
+	}
+
+	l.ParallelCommands = &map[string]CommandBase{}
+	for key, raw := range objMap {
+		var cmdBase CommandBase
+		if err := json.Unmarshal(raw, &cmdBase); err != nil {
+			return err
+		}
+		(*l.ParallelCommands)[key] = cmdBase
+	}
+
+	return nil
 }
 
 // UnmarshalJSON for the MountElement type
