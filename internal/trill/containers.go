@@ -44,13 +44,13 @@ import (
 
 // ErrLifecycleHandler is a generic error thrown when the lifecycle
 // handler encounters an error
-var ErrLifecycleHandler error = errors.New("lifecycle handler encountered an error")
+var ErrLifecycleHandler = errors.New("lifecycle handler encountered an error")
 
 // ExecInDevcontainer runs a command inside the designated
 // devcontainer (i.e., the lone container in non-Composer
 // configurations, or the one named in the service field otherwise).
-func (c *Client) ExecInDevcontainer(p *writ.Parser, runInShell bool, args ...string) error {
-	return c.ExecInContainer(c.ContainerID, p, runInShell, args...)
+func (c *Client) ExecInDevcontainer(ctx context.Context, p *writ.Parser, runInShell bool, args ...string) error {
+	return c.ExecInContainer(ctx, c.ContainerID, p, runInShell, args...)
 }
 
 // ExecInContainer runs a command inside a container designated by
@@ -58,7 +58,7 @@ func (c *Client) ExecInDevcontainer(p *writ.Parser, runInShell bool, args ...str
 //
 // If runInShell is true, args is ran via `/bin/sh -c`; otherwise,
 // args[0] is treated as the program name.
-func (c *Client) ExecInContainer(containerID string, p *writ.Parser, runInShell bool, args ...string) (err error) {
+func (c *Client) ExecInContainer(ctx context.Context, containerID string, p *writ.Parser, runInShell bool, args ...string) (err error) {
 	if runInShell {
 		shellCmd := []string{"/bin/sh", "-c"}
 		args = append(shellCmd, args...)
@@ -66,7 +66,6 @@ func (c *Client) ExecInContainer(containerID string, p *writ.Parser, runInShell 
 	cmd := strings.Join(args, " ")
 	slog.Info("running command in container", "container", containerID, "cmd", cmd)
 
-	ctx := context.Background()
 	execCreateOpts := mobyclient.ExecCreateOptions{
 		User:         *p.Config.RemoteUser,
 		TTY:          false,

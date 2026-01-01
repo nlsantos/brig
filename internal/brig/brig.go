@@ -167,7 +167,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		defer cancel()
-		return cmd.lifecycleHandler(eg, egCtx, trillClient, &parser)
+		return cmd.lifecycleHandler(egCtx, eg, trillClient, &parser)
 	})
 	eg.Go(func() (err error) {
 		imageName := createImageTagBase(&parser)
@@ -346,7 +346,7 @@ func findDevcontainerJSON(paths []string) string {
 
 // lifecycleHandler monitor's the trill client's lifecycle channel and
 // runs the appropriate hooks.
-func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c *trill.Client, p *writ.Parser) (err error) {
+func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c *trill.Client, p *writ.Parser) (err error) {
 	defer func() {
 		close(c.DevcontainerLifecycleResp)
 	}()
@@ -425,24 +425,24 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 
 // parseOptions parses the command-line options and parameters and
 // does a little housekeeping.
-func (c *Command) parseOptions(appName string, appVersion string) {
+func (cmd *Command) parseOptions(appName string, appVersion string) {
 	options.SetDisplayWidth(80)
 	options.SetHelpColumn(40)
 	options.SetParameters("<path-to-devcontainer.json>")
-	options.Register(&c.Options)
-	c.setFlagsFile(appName)
-	c.Arguments = options.Parse()
+	options.Register(&cmd.Options)
+	cmd.setFlagsFile(appName)
+	cmd.Arguments = options.Parse()
 
-	if c.Options.Version {
+	if cmd.Options.Version {
 		fmt.Printf(VersionText, appName, appVersion)
 		os.Exit(int(ExitNormal))
 	}
 
 	logLevel := new(slog.LevelVar)
 	switch {
-	case c.Options.Debug:
+	case cmd.Options.Debug:
 		logLevel.Set(slog.LevelDebug)
-	case c.Options.Verbose:
+	case cmd.Options.Verbose:
 		logLevel.Set(slog.LevelInfo)
 	default:
 		logLevel.Set(slog.LevelError)
@@ -458,26 +458,26 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 		StringIndentation: true,
 	})))
 
-	if len(c.Options.PlatformArch) == 0 {
-		c.Options.PlatformArch = "amd64"
+	if len(cmd.Options.PlatformArch) == 0 {
+		cmd.Options.PlatformArch = "amd64"
 	}
-	slog.Info("target container architecture", "arch", c.Options.PlatformArch)
+	slog.Info("target container architecture", "arch", cmd.Options.PlatformArch)
 
-	if len(c.Options.PlatformOS) == 0 {
-		c.Options.PlatformOS = "linux"
+	if len(cmd.Options.PlatformOS) == 0 {
+		cmd.Options.PlatformOS = "linux"
 	}
-	slog.Info("target container operating system", "os", c.Options.PlatformOS)
+	slog.Info("target container operating system", "os", cmd.Options.PlatformOS)
 
-	if c.Options.PortOffset == 0 {
-		c.Options.PortOffset = PrivilegedPortOffset
-	} else if c.Options.PortOffset < 1024 {
-		slog.Error("privileged port offset  must be >= 1024", "offset", c.Options.PortOffset)
+	if cmd.Options.PortOffset == 0 {
+		cmd.Options.PortOffset = PrivilegedPortOffset
+	} else if cmd.Options.PortOffset < 1024 {
+		slog.Error("privileged port offset  must be >= 1024", "offset", cmd.Options.PortOffset)
 		os.Exit(int(ExitUnsupportedConfiguration))
 	}
 
-	c.suppressOutput = logLevel.Level() > slog.LevelInfo
+	cmd.suppressOutput = logLevel.Level() > slog.LevelInfo
 
-	if c.Options.MakeMeRoot {
+	if cmd.Options.MakeMeRoot {
 		slog.Info("will be mapping your UID and GID to 0:0 inside the container")
 	}
 }
@@ -487,36 +487,36 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 //
 // Accepts port as input and returns a port number beyond the range of
 // privileged ports.
-func (c *Command) privilegedPortElevator(port uint16) uint16 {
-	return port + c.Options.PortOffset
+func (cmd *Command) privilegedPortElevator(port uint16) uint16 {
+	return port + cmd.Options.PortOffset
 }
 
 // runLifecycleCommand determines which parameter of a given lifecycle
 // command is active and runs it.
-func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.Parser, tc *trill.Client) (err error) {
+func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.Parser, tc *trill.Client) (err error) {
 	switch {
 	case lc.String != nil:
 		if tc == nil {
-			err = c.runLifecycleCommandOnHost(ctx, true, *lc.String)
+			err = cmd.runLifecycleCommandOnHost(ctx, true, *lc.String)
 		} else {
-			err = c.runLifecycleCommandInContainer(ctx, p, tc, true, *lc.String)
+			err = cmd.runLifecycleCommandInContainer(ctx, p, tc, true, *lc.String)
 		}
 
 	case len(lc.StringArray) > 0:
 		if tc == nil {
-			err = c.runLifecycleCommandOnHost(ctx, false, lc.StringArray...)
+			err = cmd.runLifecycleCommandOnHost(ctx, false, lc.StringArray...)
 		} else {
-			err = c.runLifecycleCommandInContainer(ctx, p, tc, false, lc.StringArray...)
+			err = cmd.runLifecycleCommandInContainer(ctx, p, tc, false, lc.StringArray...)
 		}
 
 	case lc.ParallelCommands != nil:
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(*lc.ParallelCommands))
-		for _, cmd := range *lc.ParallelCommands {
+		for _, pcmd := range *lc.ParallelCommands {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				errChan <- c.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: cmd}, p, tc)
+				errChan <- cmd.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: pcmd}, p, tc)
 			}()
 		}
 		wg.Wait()
@@ -534,14 +534,14 @@ func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCom
 // parameter inside the designated devcontainer (i.e., the lone
 // container in non-Composer configurations, or the one named in the
 // service field otherwise).
-func (c *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.Parser, tc *trill.Client, runInShell bool, args ...string) error {
-	return tc.ExecInDevcontainer(p, runInShell, args...)
+func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.Parser, tc *trill.Client, runInShell bool, args ...string) error {
+	return tc.ExecInDevcontainer(ctx, p, runInShell, args...)
 }
 
 // runLifecycleCommandOnHost executes a lifecycle command parameter
 // locally on the host.
-func (c *Command) runLifecycleCommandOnHost(ctx context.Context, runInShell bool, args ...string) error {
-	var cmd *exec.Cmd
+func (cmd *Command) runLifecycleCommandOnHost(ctx context.Context, runInShell bool, args ...string) error {
+	var execCmd *exec.Cmd
 
 	if runInShell {
 		shell := os.Getenv("SHELL")
@@ -550,20 +550,20 @@ func (c *Command) runLifecycleCommandOnHost(ctx context.Context, runInShell bool
 		}
 		slog.Info("running command via shell on host", "shell", shell, "args", args)
 		args = append([]string{"-c"}, args...)
-		cmd = exec.CommandContext(ctx, shell, args...)
+		execCmd = exec.CommandContext(ctx, shell, args...)
 	} else {
 		slog.Info("running command directly on host", "args", args)
-		cmd = exec.CommandContext(ctx, args[0], args[1:]...)
+		execCmd = exec.CommandContext(ctx, args[0], args[1:]...)
 	}
 
-	out, err := cmd.CombinedOutput()
-	slog.Info("command output", "cmd", cmd.String(), "output", string(out), "error", err)
+	out, err := execCmd.CombinedOutput()
+	slog.Info("command output", "cmd", execCmd.String(), "output", string(out), "error", err)
 	return err
 }
 
 // setFlagsFile goes through a list of supported paths for the flags
 // file and assigns the first valid hit for parsing
-func (c *Command) setFlagsFile(appName string) {
+func (cmd *Command) setFlagsFile(appName string) {
 	var defConfigPaths = []string{
 		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
 		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
@@ -574,7 +574,7 @@ func (c *Command) setFlagsFile(appName string) {
 		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
 			continue
 		}
-		if err := c.Options.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
+		if err := cmd.Options.Config.Set(fmt.Sprintf("?%s", defConfigPath), nil); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(int(ExitErrorParsingFlags))
 		}
@@ -584,7 +584,7 @@ func (c *Command) setFlagsFile(appName string) {
 // setContainerAndRemoteUser tries to determine what value the
 // containerUser and remoteUser fields should have based on a target
 // image, provided they're not already set.
-func (c *Command) setContainerAndRemoteUser(p *writ.Parser, tc *trill.Client, imageTag string) (err error) {
+func (cmd *Command) setContainerAndRemoteUser(p *writ.Parser, tc *trill.Client, imageTag string) (err error) {
 	if p.Config.ContainerUser == nil {
 		slog.Info("containerUser not set; attempting to figure it out using image metadata")
 		var imageCfg imagespec.DockerOCIImageConfig

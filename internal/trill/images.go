@@ -146,6 +146,8 @@ func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, suppres
 	return c.BuildContainerImage(*p.Config.Context, *p.Config.DockerFile, imageTag, nil, suppressOutput)
 }
 
+// InspectImage is a very thin wrapper around the ImageInspect API
+// call.
 func (c *Client) InspectImage(imageTag string) (imageCfg imagespec.DockerOCIImageConfig, err error) {
 	inspectResp, err := c.mobyClient.ImageInspect(context.Background(), imageTag)
 	return *inspectResp.Config, err

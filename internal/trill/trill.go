@@ -97,6 +97,9 @@ func NewClient(socketAddr string, makeMeRoot bool) *Client {
 	return c
 }
 
+// Close is a clean up function for trill.Client.
+//
+// This should be deferred.
 func (c *Client) Close() (err error) {
 	if c.attachResp != nil {
 		c.attachResp.Close()
