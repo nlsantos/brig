@@ -18,6 +18,7 @@
 package trill
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,10 +27,12 @@ import (
 	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
@@ -39,7 +42,77 @@ import (
 	"golang.org/x/term"
 )
 
+// ErrLifecycleHandler is a generic error thrown when the lifecycle
+// handler encounters an error
 var ErrLifecycleHandler error = errors.New("lifecycle handler encountered an error")
+
+// ExecInDevcontainer runs a command inside the designated
+// devcontainer (i.e., the lone container in non-Composer
+// configurations, or the one named in the service field otherwise).
+func (c *Client) ExecInDevcontainer(p *writ.Parser, runInShell bool, args ...string) error {
+	return c.ExecInContainer(c.ContainerID, p, runInShell, args...)
+}
+
+// ExecInContainer runs a command inside a container designated by
+// containerID.
+//
+// If runInShell is true, args is ran via `/bin/sh -c`; otherwise,
+// args[0] is treated as the program name.
+func (c *Client) ExecInContainer(containerID string, p *writ.Parser, runInShell bool, args ...string) (err error) {
+	if runInShell {
+		shellCmd := []string{"/bin/sh", "-c"}
+		args = append(shellCmd, args...)
+	}
+	cmd := strings.Join(args, " ")
+	slog.Info("running command in container", "container", containerID, "cmd", cmd)
+
+	ctx := context.Background()
+	execCreateOpts := mobyclient.ExecCreateOptions{
+		User:         *p.Config.RemoteUser,
+		TTY:          false,
+		AttachStderr: true,
+		AttachStdout: true,
+		Cmd:          args,
+	}
+	if len(p.Config.RemoteEnv) > 0 {
+		for name, val := range p.Config.RemoteEnv {
+			execCreateOpts.Env = append(execCreateOpts.Env, fmt.Sprintf("%s=%s", name, *val))
+		}
+	}
+	slog.Debug("creating execution context", "container", containerID, "opts", execCreateOpts)
+	execCreateRes, err := c.mobyClient.ExecCreate(ctx, containerID, execCreateOpts)
+	if err != nil {
+		slog.Error("encountered error while preparing execution context", "error", err)
+		return err
+	}
+	slog.Debug("executing command", "container", containerID, "context", execCreateRes.ID)
+	execAttachRes, err := c.mobyClient.ExecAttach(ctx, execCreateRes.ID, mobyclient.ExecAttachOptions{})
+	if err != nil {
+		slog.Error("encountered error while executing the command", "error", err)
+		return err
+	}
+	execInspectRes, err := c.mobyClient.ExecInspect(ctx, execCreateRes.ID, mobyclient.ExecInspectOptions{})
+	if err != nil {
+		slog.Error("encountered error while inspecting execution context", "error", err)
+		return err
+	}
+
+	cmdStderr := bytes.Buffer{}
+	cmdStdout := bytes.Buffer{}
+	_, err = stdcopy.StdCopy(&cmdStdout, &cmdStderr, execAttachRes.Reader)
+	if err != nil {
+		slog.Error("could not demultiplex output from command", "cmd", cmd, "error", err)
+		return err
+	}
+
+	slog.Info("command output", "cmd", cmd, "stdout", cmdStdout.String(), "stderr", cmdStderr.String())
+	if execInspectRes.ExitCode != 0 {
+		slog.Error("command ran in container returned non-zero", "exit-code", execInspectRes.ExitCode, "cmd", cmd)
+		err = fmt.Errorf("command returned non-zero exit code: %d", execInspectRes.ExitCode)
+	}
+
+	return err
+}
 
 // StartDevcontainerContainer starts and attaches to a container based
 // on configuration from devcontainer.json.
