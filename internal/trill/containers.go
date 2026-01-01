@@ -122,7 +122,18 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 		}
 		slog.Debug("successfully attached to container", "id", c.ContainerID)
 		c.attachResp = &attachResp
+	}
 
+	slog.Debug("attempting to start container", "id", createResp.ID)
+	// TODO: Support the container initialization options/operations
+	// exposed by the devcontainer spec
+	if _, err := c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
+		slog.Error("encountered an error while trying to start the container", "error", err)
+		return err
+	}
+	slog.Debug("container started successfully", "id", createResp.ID)
+
+	if isDevcontainer {
 		// Lifecycle hooks
 		c.DevcontainerLifecycleChan <- LifecycleOnCreate
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
@@ -137,15 +148,6 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 			return ErrLifecycleHandler
 		}
 	}
-
-	slog.Debug("attempting to start container", "id", createResp.ID)
-	// TODO: Support the container initialization options/operations
-	// exposed by the devcontainer spec
-	if _, err := c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
-		slog.Error("encountered an error while trying to start the container", "error", err)
-		return err
-	}
-	slog.Debug("container started successfully", "id", createResp.ID)
 
 	return nil
 }
