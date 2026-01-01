@@ -1,8 +1,15 @@
 # brig
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/nlsantos/brig)](https://goreportcard.com/report/github.com/nlsantos/brig)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/release/nlsantos/brig.svg)](https://github.com/nlsantos/brig/releases)
+![Commits since last release](https://img.shields.io/github/commits-since/nlsantos/brig/latest)
+
 **The lightweight, native Go CLI for devcontainers**
 
 `brig` reads your `devcontainer.json` configuration and spins up a containerized development environment. It is designed as a standalone, dependency-free alternative to the [official command-line tool](https://github.com/devcontainers/cli) with first-class support for [podman](https://podman.io/) and rootless workflows.
+
+![`brig` running its own devcontainer](.github/assets/brig.gif)
 
 ## Table of contents
 
@@ -60,6 +67,7 @@ Download the [latest release](releases) for your platform and extract the binary
 2. **Minimalist Design**: Built along the lines of the Unix philosophy of building one thing that does one thing well, `brig` strives to do its job and get out of your way.
 3. **Editor Agnostic**: `brig` unlocks the powerful and convenient workflow enabled by devcontainers to users of Emacs, Vim, Helix, and other editors.
 4. **Security Focus**: Built with [podman](https://podman.io/) in mind, `brig`'s implementation choices are made in alignment with podman's design of running containers as a regular user. This aligns well with usage in highly locked-down environments (e.g., company-issued workstations).
+5. **FreeBSD Support**: With podman being available in FreeBSD, users who prefer a *nix-based operating system have another choice beyond GNU/Linux and macOS. `brig` can help maintain a similar workflow to those using Windows and Visual Studio Code.
 
 ## Podman-first design
 
@@ -104,7 +112,7 @@ For a detailed technical explanation of these design choices, see [docs/ports.md
 
 `brig` treats devcontainers as ephemeral, unlike Visual Studio Code (and possibly the official command-line tool), which keeps stopped containers to start later.
 
-This aligns with the "cattle, not pets" philosophy for development environments, and encourages devcontainers to be stateless and replicatable.
+This aligns with the "cattle, not pets" philosophy for development environments, and encourages devcontainers to be stateless and reproducible.
 
 ### No dedicated build step
 
