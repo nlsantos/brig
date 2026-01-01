@@ -341,11 +341,10 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		switch event {
 		case trill.LifecycleInitialize:
 			slog.Debug("lifecycle", "event", "init")
-			if p.Config.InitializeCommand == nil {
-				continue
-			}
-			if err := cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, true); err != nil {
-				return err
+			if p.Config.InitializeCommand != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, true); err != nil {
+					return err
+				}
 			}
 			if *p.Config.WaitFor == writ.WaitForInitializeCommand {
 				eg.Go(c.AttachHostTerminalToDevcontainer)
@@ -353,8 +352,10 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 
 		case trill.LifecycleOnCreate:
 			slog.Debug("lifecycle", "event", "onCreate")
-			if p.Config.OnCreateCommand == nil {
-				continue
+			if p.Config.OnCreateCommand != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.OnCreateCommand, false); err != nil {
+					return err
+				}
 			}
 			if *p.Config.WaitFor == writ.WaitForOnCreateCommand {
 				eg.Go(c.AttachHostTerminalToDevcontainer)
@@ -362,14 +363,18 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 
 		case trill.LifecyclePostAttach:
 			slog.Debug("lifecycle", "event", "postAttach")
-			if p.Config.PostAttachCommand == nil {
-				continue
+			if p.Config.PostAttachCommand != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostAttachCommand, false); err != nil {
+					return err
+				}
 			}
 
 		case trill.LifecyclePostCreate:
 			slog.Debug("lifecycle", "event", "postCreate")
-			if p.Config.PostCreateCommand == nil {
-				continue
+			if p.Config.PostCreateCommand != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostCreateCommand, false); err != nil {
+					return err
+				}
 			}
 			if *p.Config.WaitFor == writ.WaitForPostCreateCommand {
 				eg.Go(c.AttachHostTerminalToDevcontainer)
@@ -377,8 +382,10 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 
 		case trill.LifecyclePostStart:
 			slog.Debug("lifecycle", "event", "postStart")
-			if p.Config.PostStartCommand == nil {
-				continue
+			if p.Config.PostStartCommand != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostStartCommand, false); err != nil {
+					return err
+				}
 			}
 			if *p.Config.WaitFor == writ.WaitForPostStartCommand {
 				eg.Go(c.AttachHostTerminalToDevcontainer)
@@ -386,8 +393,10 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 
 		case trill.LifecycleUpdate:
 			slog.Debug("lifecycle", "event", "update")
-			if p.Config.UpdateContentCommand == nil {
-				continue
+			if p.Config.UpdateContentCommand != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.UpdateContentCommand, false); err != nil {
+					return err
+				}
 			}
 			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
 				eg.Go(c.AttachHostTerminalToDevcontainer)
