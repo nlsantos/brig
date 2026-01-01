@@ -17,9 +17,11 @@
 package brig
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -382,6 +384,76 @@ func findDevcontainerJSON(paths []string) string {
 	return candidates[0]
 }
 
+// lifecycleHandler monitor's the trill client's lifecycle channel and
+// runs the appropriate hooks.
+func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c *trill.Client, p *writ.Parser) (err error) {
+	defer func() {
+		close(c.DevcontainerLifecycleResp)
+	}()
+
+	for event := range c.DevcontainerLifecycleChan {
+		switch event {
+		case trill.LifecycleInitialize:
+			slog.Debug("lifecycle", "event", "init")
+			if p.Config.InitializeCommand == nil {
+				continue
+			}
+			if err := cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, true); err != nil {
+				return err
+			}
+			if *p.Config.WaitFor == writ.WaitForInitializeCommand {
+				eg.Go(c.AttachHostTerminalToDevcontainer)
+			}
+
+		case trill.LifecycleOnCreate:
+			slog.Debug("lifecycle", "event", "onCreate")
+			if p.Config.OnCreateCommand == nil {
+				continue
+			}
+			if *p.Config.WaitFor == writ.WaitForOnCreateCommand {
+				eg.Go(c.AttachHostTerminalToDevcontainer)
+			}
+
+		case trill.LifecyclePostAttach:
+			slog.Debug("lifecycle", "event", "postAttach")
+			if p.Config.PostAttachCommand == nil {
+				continue
+			}
+
+		case trill.LifecyclePostCreate:
+			slog.Debug("lifecycle", "event", "postCreate")
+			if p.Config.PostCreateCommand == nil {
+				continue
+			}
+			if *p.Config.WaitFor == writ.WaitForPostCreateCommand {
+				eg.Go(c.AttachHostTerminalToDevcontainer)
+			}
+
+		case trill.LifecyclePostStart:
+			slog.Debug("lifecycle", "event", "postStart")
+			if p.Config.PostStartCommand == nil {
+				continue
+			}
+			if *p.Config.WaitFor == writ.WaitForPostStartCommand {
+				eg.Go(c.AttachHostTerminalToDevcontainer)
+			}
+
+		case trill.LifecycleUpdate:
+			slog.Debug("lifecycle", "event", "update")
+			if p.Config.UpdateContentCommand == nil {
+				continue
+			}
+			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
+				eg.Go(c.AttachHostTerminalToDevcontainer)
+			}
+		}
+		c.DevcontainerLifecycleResp <- err == nil
+	}
+
+	slog.Debug("exiting lifecycle handler")
+	return nil
+}
+
 // parseOptions parses the command-line options and parameters and
 // does a little housekeeping.
 func (c *Command) parseOptions(appName string, appVersion string) {
@@ -448,6 +520,64 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 // privileged ports.
 func (c *Command) privilegedPortElevator(port uint16) uint16 {
 	return port + c.Options.PortOffset
+}
+
+// runLifecycleCommand determines which parameter of a given lifecycle
+// command is active and runs it.
+func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, runOnHost bool) (err error) {
+	switch {
+	case lc.String != nil:
+		if runOnHost {
+			err = c.runLifecycleCommandOnHost(ctx, true, *lc.String)
+		}
+
+	case len(lc.StringArray) > 0:
+		if runOnHost {
+			err = c.runLifecycleCommandOnHost(ctx, false, lc.StringArray...)
+		}
+
+	case lc.ParallelCommands != nil:
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(*lc.ParallelCommands))
+		for _, cmd := range *lc.ParallelCommands {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				errChan <- c.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: cmd}, runOnHost)
+			}()
+		}
+		wg.Wait()
+		close(errChan)
+		for err = range errChan {
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
+// runLifecycleCommandOnHost executes a lifecycle command parameter
+// locally on the host.
+func (c *Command) runLifecycleCommandOnHost(ctx context.Context, runInShell bool, args ...string) error {
+	var cmd *exec.Cmd
+
+	if runInShell {
+		shell := os.Getenv("SHELL")
+		if len(shell) == 0 {
+			shell = "/bin/sh"
+		}
+		slog.Info("running command via shell on host", "shell", shell, "args", args)
+		args = append([]string{"-c"}, args...)
+		cmd = exec.CommandContext(ctx, shell, args...)
+	} else {
+		slog.Info("running command directly on host", "args", args)
+		cmd = exec.CommandContext(ctx, args[0], args[1:]...)
+	}
+
+	out, err := cmd.CombinedOutput()
+	slog.Info("command output", "cmd", cmd.String(), "output", string(out), "error", err)
+	return err
 }
 
 // setFlagsFile goes through a list of supported paths for the flags
