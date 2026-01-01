@@ -441,6 +441,15 @@ func (c *Command) parseOptions(appName string, appVersion string) {
 	}
 }
 
+// privilegedPortElevator is the function called by trill when
+// encountering privileged ports (ports numbered < 1024).
+//
+// Accepts port as input and returns a port number beyond the range of
+// privileged ports.
+func (c *Command) privilegedPortElevator(port uint16) uint16 {
+	return port + c.Options.PortOffset
+}
+
 // setFlagsFile goes through a list of supported paths for the flags
 // file and assigns the first valid hit for parsing
 func (c *Command) setFlagsFile(appName string) {
@@ -459,13 +468,4 @@ func (c *Command) setFlagsFile(appName string) {
 			os.Exit(int(ExitErrorParsingFlags))
 		}
 	}
-}
-
-// privilegedPortElevator is the function called by trill when
-// encountering privileged ports (ports numbered < 1024).
-//
-// Accepts port as input and returns a port number beyond the range of
-// privileged ports.
-func (c *Command) privilegedPortElevator(port uint16) uint16 {
-	return port + c.Options.PortOffset
 }
