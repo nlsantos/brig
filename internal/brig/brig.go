@@ -30,6 +30,7 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/go-git/go-git/v6"
 	"github.com/golang-cz/devslog"
+	imagespec "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"github.com/pborman/options"
@@ -176,8 +177,15 @@ func NewCommand(appName string, appVersion string) ExitCode {
 			imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
 			if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
-			} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+				return err
+			}
+			if err = cmd.setContainerAndRemoteUser(&parser, trillClient, imageTag); err != nil {
+				slog.Error("encountered an error while attempting to determine container/remote user", "image", imageTag, "error", err)
+				return err
+			}
+			if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
+				return err
 			}
 
 		case parser.Config.DockerComposeFile != nil && len(*parser.Config.DockerComposeFile) > 0:
@@ -190,7 +198,13 @@ func NewCommand(appName string, appVersion string) ExitCode {
 			imageTag = *parser.Config.Image
 			if err = trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
-			} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+				return err
+			}
+			if err = cmd.setContainerAndRemoteUser(&parser, trillClient, imageTag); err != nil {
+				slog.Error("encountered an error while attempting to determine container/remote user", "image", imageTag, "error", err)
+				return err
+			}
+			if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 			}
 
@@ -553,4 +567,30 @@ func (c *Command) setFlagsFile(appName string) {
 			os.Exit(int(ExitErrorParsingFlags))
 		}
 	}
+}
+
+// setContainerAndRemoteUser tries to determine what value the
+// containerUser and remoteUser fields should have based on a target
+// image, provided they're not already set.
+func (c *Command) setContainerAndRemoteUser(p *writ.Parser, tc *trill.Client, imageTag string) (err error) {
+	if p.Config.ContainerUser == nil {
+		slog.Info("containerUser not set; attempting to figure it out using image metadata")
+		var imageCfg imagespec.DockerOCIImageConfig
+		if imageCfg, err = tc.InspectImage(imageTag); err == nil {
+			imageUser := imageCfg.User
+			if len(imageUser) == 0 {
+				imageUser = "root"
+			}
+			p.Config.ContainerUser = &imageUser
+		}
+	} else {
+		slog.Debug("containerUser already set; skipping image metadata inspection", "user", *p.Config.ContainerUser)
+	}
+
+	if err == nil && p.Config.RemoteUser == nil {
+		slog.Info("remoteUser not set; setting to be the same as containerUser", "user", *p.Config.ContainerUser)
+		p.Config.RemoteUser = p.Config.ContainerUser
+	}
+
+	return err
 }
