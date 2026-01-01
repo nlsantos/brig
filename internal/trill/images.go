@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/pkg/jsonmessage"
+	imagespec "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/moby/go-archive"
 	mobyclient "github.com/moby/moby/client"
 	"github.com/moby/patternmatcher/ignorefile"
@@ -143,6 +144,11 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 // This is a very thin wrapper over BuildContainerImage.
 func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, suppressOutput bool) error {
 	return c.BuildContainerImage(*p.Config.Context, *p.Config.DockerFile, imageTag, nil, suppressOutput)
+}
+
+func (c *Client) InspectImage(imageTag string) (imageCfg imagespec.DockerOCIImageConfig, err error) {
+	inspectResp, err := c.mobyClient.ImageInspect(context.Background(), imageTag)
+	return *inspectResp.Config, err
 }
 
 // PullContainerImage pulls the OCI image from a remtoe registry so it
