@@ -54,7 +54,8 @@ type Client struct {
 	ContainerID string // The internal ID the API assigned to the created container
 	// Channel to broadcast the devcontainer's (in a Composer project,
 	// the container named in the service field) lifecycle events on
-	DevcontainerLifecycleChan chan (LifecycleEvents)
+	DevcontainerLifecycleChan chan LifecycleEvents
+	DevcontainerLifecycleResp chan bool
 	MakeMeRoot                bool                   // If true, will ensure that the current user gets mapped as root inside the container
 	Platform                  Platform               // Platform details for any containers created
 	PrivilegedPortElevator    PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
@@ -82,6 +83,7 @@ type Platform struct {
 func NewClient(socketAddr string, makeMeRoot bool) *Client {
 	c := &Client{
 		DevcontainerLifecycleChan: make(chan LifecycleEvents),
+		DevcontainerLifecycleResp: make(chan bool, 1),
 		MakeMeRoot:                makeMeRoot,
 		SocketAddr:                socketAddr,
 	}
@@ -96,8 +98,9 @@ func NewClient(socketAddr string, makeMeRoot bool) *Client {
 }
 
 func (c *Client) Close() (err error) {
-	c.attachResp.Close()
-	close(c.DevcontainerLifecycleChan)
+	if c.attachResp != nil {
+		c.attachResp.Close()
+	}
 	if err = c.mobyClient.Close(); err != nil {
 		slog.Error("could not close Moby client", "error", err)
 	}
