@@ -223,7 +223,9 @@ func (c *Client) AttachHostTerminalToDevcontainer() (err error) {
 	}()
 
 	c.DevcontainerLifecycleChan <- LifecyclePostAttach
+
 	wg.Wait()
+	close(c.DevcontainerLifecycleChan)
 	slog.Debug("detached from container", "id", c.ContainerID)
 
 	return nil
