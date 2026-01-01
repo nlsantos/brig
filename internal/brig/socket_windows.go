@@ -15,7 +15,7 @@
    GNU General Public License for more details.
 */
 
-// Package brig houses a CLI tool for wokring with devcontainer.json
+// Package brig houses a CLI tool for working with devcontainer.json
 package brig
 
 import (

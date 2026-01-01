@@ -13,7 +13,7 @@
    GNU General Public License for more details.
 */
 
-// Package brig houses a CLI tool for wokring with devcontainer.json
+// Package brig houses a CLI tool for working with devcontainer.json
 package brig
 
 import (
@@ -75,7 +75,7 @@ var StandardDevcontainerJSONPatterns = []string{
 	".devcontainer/*/devcontainer.json",
 }
 
-// VersionText is just the message printed out when verison
+// VersionText is just the message printed out when version
 // information is requested.
 var VersionText = heredoc.Doc(`
     %s, version %s

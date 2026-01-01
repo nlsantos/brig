@@ -268,7 +268,7 @@ func (c *Client) AttachHostTerminalToDevcontainer() (err error) {
 	slog.Debug("attempting to resize container's pseudo-TTY")
 	w, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
-		slog.Error("encountered an error trying to get ther terminal's dimensions", "error", err)
+		slog.Error("encountered an error trying to get the terminal's dimensions", "error", err)
 		return err
 	}
 
