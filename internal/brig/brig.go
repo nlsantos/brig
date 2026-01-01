@@ -105,7 +105,7 @@ type Command struct {
 }
 
 // NewCommand initializes the command's lifecycle
-func NewCommand(appName string, appVersion string) {
+func NewCommand(appName string, appVersion string) ExitCode {
 	var cmd Command
 	var err error
 
@@ -119,22 +119,22 @@ func NewCommand(appName string, appVersion string) {
 	parser := writ.NewParser(targetDevcontainerJSON)
 	if err = parser.Validate(); err != nil {
 		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
-		os.Exit(int(ExitNonValidDevcontainerJSON))
+		return ExitNonValidDevcontainerJSON
 	}
 	if err = parser.Parse(); err != nil {
 		slog.Error("devcontainer.json could not be parsed", "path", targetDevcontainerJSON, "error", err)
-		os.Exit(int(ExitNonValidDevcontainerJSON))
+		return ExitNonValidDevcontainerJSON
 	}
 	if cmd.Options.ValidateOnly {
 		slog.Info("devcontainer.json validated and parsed successfully", "path", targetDevcontainerJSON)
-		os.Exit(int(ExitNormal))
+		return ExitNormal
 	}
 
 	socketAdddr := getSocketAddr(cmd.Options.Socket)
 	if len(socketAdddr) == 0 {
 		slog.Error("No socket address / path specified and none can be found")
 		fmt.Println("fatal: Could not determine Podman/Docker socket address. Exiting.")
-		os.Exit(int(ExitNoSocketFound))
+		return ExitNoSocketFound
 	}
 
 	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
