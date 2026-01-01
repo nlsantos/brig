@@ -31,7 +31,6 @@ import (
 
 	compose "github.com/compose-spec/compose-go/cli"
 	composetypes "github.com/compose-spec/compose-go/types"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/heimdalr/dag"
 	dockerspecs "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/moby/moby/api/types/container"
@@ -40,20 +39,6 @@ import (
 	mobyclient "github.com/moby/moby/client"
 	"github.com/nlsantos/brig/writ"
 )
-
-// ComposerServiceWaitFunc is a type representing the signature of the
-// function createComposerService could return in a
-// ComposerServiceReturn if required.
-type ComposerServiceWaitFunc func() error
-
-// ComposerServiceReturn is a struct that createComposerService
-// returns; it consists of a function that might need to be ran to
-// ensure the service creation completes succesfully, and an error (if
-// needed).
-type ComposerServiceReturn struct {
-	WaitFunc *ComposerServiceWaitFunc
-	Error    error
-}
 
 // DeployComposerProject provisions a Composer project as referenced
 // by a devcontainer.json configuration.
@@ -389,9 +374,7 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 //
 // If it encounters an error, the Error field of its return value is
 // populated.
-func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) (retval ComposerServiceReturn) {
-	slog.Debug(spew.Sdump(serviceCfg))
-
+func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) error {
 	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
 	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
 	slog.Debug("converting service config to Moby equivalents", "name", containerName)
@@ -403,84 +386,27 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	if serviceCfg.Build != nil {
 		buildOpts, err := c.buildServiceBuildOpts(serviceCfg.Build, suppressOutput)
 		if err != nil {
-			return ComposerServiceReturn{
-				WaitFunc: nil,
-				Error:    err,
-			}
+			return err
 		}
 		buildOpts.Tags = append(buildOpts.Tags, imageTag)
 		if err := c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
-			return ComposerServiceReturn{
-				WaitFunc: nil,
-				Error:    err,
-			}
+			return err
 		}
 		containerCfg.Image = imageTag
 	} else if len(serviceCfg.Image) > 0 {
 		if err := c.PullContainerImage(serviceCfg.Image, suppressOutput); err != nil {
-			return ComposerServiceReturn{
-				WaitFunc: nil,
-				Error:    err,
-			}
+			return err
 		}
 		containerCfg.Image = serviceCfg.Image
 	}
 
 	slog.Debug("creating Composer service container", "name", containerName)
-	// Service containers get a bit of special treatment
 	if *p.Config.Service == serviceCfg.Name {
-		var wg sync.WaitGroup
-		errChan := make(chan error, 1)
 		hostCfg.PortBindings = make(network.PortMap)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errChan <- c.StartContainer(p, containerCfg, hostCfg, containerName)
-		}()
-		waitFunc := func() error {
-			wg.Wait()
-			close(errChan)
-			for err := range errChan {
-				return err
-			}
-			return nil
-		}
-		return ComposerServiceReturn{
-			WaitFunc: (*ComposerServiceWaitFunc)(&waitFunc),
-			Error:    nil,
-		}
+		return c.StartContainer(p, containerCfg, hostCfg, containerName, true)
 	}
 
-	slog.Debug("using container config", "config", containerCfg)
-	slog.Debug("using host config", "config", hostCfg)
-	ctx := context.Background()
-	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
-		Config:     containerCfg,
-		HostConfig: hostCfg,
-		Name:       containerName,
-	})
-	if err != nil {
-		slog.Error("encountered an error creating a container", "error", err)
-		return ComposerServiceReturn{
-			WaitFunc: nil,
-			Error:    err,
-		}
-	}
-	slog.Debug("Composer container created successfully", "id", createResp.ID)
-
-	slog.Debug("attempting to start Composer container", "id", createResp.ID)
-	if _, err = c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
-		slog.Error("encountered an error while trying to start Composer container", "id", createResp.ID)
-		return ComposerServiceReturn{
-			WaitFunc: nil,
-			Error:    err,
-		}
-	}
-	slog.Debug("Composer container started successfully", "id", createResp.ID)
-	return ComposerServiceReturn{
-		WaitFunc: nil,
-		Error:    nil,
-	}
+	return c.StartContainer(p, containerCfg, hostCfg, containerName, false)
 }
 
 // createComposerServices iterates through servicesDAG breadth-first
@@ -491,13 +417,10 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 // It returns the first error it encounters, and is liable to leave
 // the Composer project in an indeterminate state.
 func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, suppressOutput bool) error {
-	var errChan chan error
-	var waitFuncs []ComposerServiceWaitFunc
-
 	roots := servicesDAG.GetRoots()
 	for len(roots) > 0 {
+		errChan := make(chan error, len(roots))
 		var wg sync.WaitGroup
-		returnChan := make(chan ComposerServiceReturn, len(roots))
 
 		for raw := range maps.Values(roots) {
 			serviceCfg, ok := raw.(*composetypes.ServiceConfig)
@@ -508,18 +431,15 @@ func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, im
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				returnChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
+				errChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
 			}()
 		}
 		wg.Wait()
-		close(returnChan)
+		close(errChan)
 
-		for retval := range returnChan {
-			if retval.WaitFunc != nil {
-				waitFuncs = append(waitFuncs, *retval.WaitFunc)
-			}
-			if retval.Error != nil {
-				return retval.Error
+		for err := range errChan {
+			if err != nil {
+				return err
 			}
 		}
 
@@ -530,25 +450,6 @@ func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, im
 		}
 
 		roots = servicesDAG.GetRoots()
-	}
-
-	var wg sync.WaitGroup
-	errChan = make(chan error, len(waitFuncs))
-	slog.Debug("trawling through service wait functions...")
-	for _, waitFunc := range waitFuncs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errChan <- waitFunc()
-		}()
-	}
-	wg.Wait()
-	close(errChan)
-	slog.Debug("service wait functions completed; checking for returned errors...")
-	for err := range errChan {
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
