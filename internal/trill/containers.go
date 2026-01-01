@@ -39,6 +39,8 @@ import (
 	"golang.org/x/term"
 )
 
+var ErrLifecycleHandler error = errors.New("lifecycle handler encountered an error")
+
 // StartDevcontainerContainer starts and attaches to a container based
 // on configuration from devcontainer.json.
 //
