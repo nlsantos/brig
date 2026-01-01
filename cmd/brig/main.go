@@ -16,11 +16,15 @@
 // Package main houses the entrypoint for the brig CLI
 package main
 
-import "github.com/nlsantos/brig/internal/brig"
+import (
+	"os"
+
+	"github.com/nlsantos/brig/internal/brig"
+)
 
 const AppName string = "brig"
 const AppVersion string = "0.0.8-alpha"
 
 func main() {
-	brig.NewCommand(AppName, AppVersion)
+	os.Exit(int(brig.NewCommand(AppName, AppVersion)))
 }
