@@ -133,6 +133,17 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 	return nil
 }
 
+// StopDevcontainer signals the devcontainer to terminate and then
+// subsequently removed.
+//
+// There is normally no reason to call this directly: this is intended
+// to assist with cleanup when errors are encountered.
+func (c *Client) StopDevcontainer() {
+	if _, err := c.mobyClient.ContainerStop(context.Background(), c.ContainerID, mobyclient.ContainerStopOptions{}); err != nil {
+		slog.Error("encountered an error while trying to stop the devcontainer", "error", err)
+	}
+}
+
 // AttachHostTerminalToDevcontainer attempts to route input from the
 // terminal into the container's pseudo-TTY, and redirect the
 // pseudo-TTY's output to the host terminal.
