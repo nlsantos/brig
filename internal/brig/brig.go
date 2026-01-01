@@ -356,7 +356,7 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		case trill.LifecycleInitialize:
 			slog.Debug("lifecycle", "event", "init")
 			if p.Config.InitializeCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, true); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, p, nil); err != nil {
 					return err
 				}
 			}
@@ -367,7 +367,7 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		case trill.LifecycleOnCreate:
 			slog.Debug("lifecycle", "event", "onCreate")
 			if p.Config.OnCreateCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.OnCreateCommand, false); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.OnCreateCommand, p, c); err != nil {
 					return err
 				}
 			}
@@ -378,7 +378,7 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		case trill.LifecyclePostAttach:
 			slog.Debug("lifecycle", "event", "postAttach")
 			if p.Config.PostAttachCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostAttachCommand, false); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostAttachCommand, p, c); err != nil {
 					return err
 				}
 			}
@@ -386,7 +386,7 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		case trill.LifecyclePostCreate:
 			slog.Debug("lifecycle", "event", "postCreate")
 			if p.Config.PostCreateCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostCreateCommand, false); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostCreateCommand, p, c); err != nil {
 					return err
 				}
 			}
@@ -397,7 +397,7 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		case trill.LifecyclePostStart:
 			slog.Debug("lifecycle", "event", "postStart")
 			if p.Config.PostStartCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostStartCommand, false); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostStartCommand, p, c); err != nil {
 					return err
 				}
 			}
@@ -408,7 +408,7 @@ func (cmd *Command) lifecycleHandler(eg *errgroup.Group, ctx context.Context, c 
 		case trill.LifecycleUpdate:
 			slog.Debug("lifecycle", "event", "update")
 			if p.Config.UpdateContentCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.UpdateContentCommand, false); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.UpdateContentCommand, p, c); err != nil {
 					return err
 				}
 			}
@@ -493,16 +493,20 @@ func (c *Command) privilegedPortElevator(port uint16) uint16 {
 
 // runLifecycleCommand determines which parameter of a given lifecycle
 // command is active and runs it.
-func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, runOnHost bool) (err error) {
+func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.Parser, tc *trill.Client) (err error) {
 	switch {
 	case lc.String != nil:
-		if runOnHost {
+		if tc == nil {
 			err = c.runLifecycleCommandOnHost(ctx, true, *lc.String)
+		} else {
+			err = c.runLifecycleCommandInContainer(ctx, p, tc, true, *lc.String)
 		}
 
 	case len(lc.StringArray) > 0:
-		if runOnHost {
+		if tc == nil {
 			err = c.runLifecycleCommandOnHost(ctx, false, lc.StringArray...)
+		} else {
+			err = c.runLifecycleCommandInContainer(ctx, p, tc, false, lc.StringArray...)
 		}
 
 	case lc.ParallelCommands != nil:
@@ -512,7 +516,7 @@ func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCom
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				errChan <- c.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: cmd}, runOnHost)
+				errChan <- c.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: cmd}, p, tc)
 			}()
 		}
 		wg.Wait()
@@ -524,6 +528,14 @@ func (c *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCom
 		}
 	}
 	return err
+}
+
+// runLifecycleCommandInContainer executes a lifecycle command
+// parameter inside the designated devcontainer (i.e., the lone
+// container in non-Composer configurations, or the one named in the
+// service field otherwise).
+func (c *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.Parser, tc *trill.Client, runInShell bool, args ...string) error {
+	return tc.ExecInDevcontainer(p, runInShell, args...)
 }
 
 // runLifecycleCommandOnHost executes a lifecycle command parameter
