@@ -33,6 +33,7 @@ import (
 	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"github.com/pborman/options"
+	"golang.org/x/sync/errgroup"
 )
 
 // ExitCode is a list of numeric exit codes used by brig
@@ -140,127 +141,72 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	}
 
 	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
-	defer func() {
-		if err = trillClient.Close(); err != nil {
-			slog.Error("received an error while closing the trill client", "error", err)
-		}
-	}()
 	trillClient.Platform = trill.Platform{
 		Architecture: cmd.Options.PlatformArch,
 		OS:           cmd.Options.PlatformOS,
 	}
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
-	imageName := createImageTagBase(&parser)
-
-	var wg sync.WaitGroup
-	go func() {
-		errChan := make(chan error, 1)
-		cmd.lifecycleHandler(&wg, errChan, trillClient, &parser)
-		for err := range errChan {
-			if err != nil {
-				slog.Error("received error from lifecycle handler", "error", err)
-				os.Exit(int(ExitError))
+	defer func() {
+		if parser.Config.DockerComposeFile == nil {
+			if len(trillClient.ContainerID) > 0 {
+				trillClient.StopDevcontainer()
 			}
-		}
-	}()
-
-	var imageTag string
-	switch {
-	case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
-		imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-		if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
-			slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
-		} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
-			slog.Error("encountered an error while trying to start the devcontainer", "error", err)
-		}
-
-	case parser.Config.DockerComposeFile != nil && len(*parser.Config.DockerComposeFile) > 0:
-		slog.Warn("SUPPORT FOR COMPOSER PROJECTS IS INCOMPLETE")
-		err = trillClient.DeployComposerProject(&parser, imageName, ImageTagPrefix, cmd.suppressOutput)
-		if err != nil {
-			slog.Error("encountered an error while trying to build a Compose project", "error", err)
 		} else if err = trillClient.TeardownComposerProject(); err != nil {
 			slog.Error("encountered an error while trying to tear down the Compose project", "error", err)
 		}
 
-	case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
-		imageTag = *parser.Config.Image
-		if err = trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
-			slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
-		} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
-			slog.Error("encountered an error while trying to start the devcontainer", "error", err)
+		if err = trillClient.Close(); err != nil {
+			slog.Error("received an error while closing the trill client", "error", err)
 		}
+	}()
 
-	default:
-		slog.Error("devcontainer.json specifies an unsupported mode of operation; exiting")
-		os.Exit(int(ExitUnsupportedConfiguration))
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	if err != nil {
-		os.Exit(int(ExitError))
-	}
-
-	wg.Wait()
-	os.Exit(int(ExitNormal))
-}
-
-func (cmd *Command) lifecycleHandler(wg *sync.WaitGroup, errChan chan error, c *trill.Client, p *writ.Parser) {
-	for event := range c.DevcontainerLifecycleChan {
-		switch event {
-		case trill.LifecycleInitialize:
-			slog.Debug("lifecycle", "event", "init")
-			if *p.Config.WaitFor == writ.WaitForInitializeCommand {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					errChan <- c.AttachHostTerminalToDevcontainer()
-				}()
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		defer cancel()
+		return cmd.lifecycleHandler(eg, egCtx, trillClient, &parser)
+	})
+	eg.Go(func() (err error) {
+		imageName := createImageTagBase(&parser)
+		var imageTag string
+		switch {
+		case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
+			imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
+			if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
+				slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
+			} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 			}
 
-		case trill.LifecycleOnCreate:
-			slog.Debug("lifecycle", "event", "onCreate")
-			if *p.Config.WaitFor == writ.WaitForOnCreateCommand {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					errChan <- c.AttachHostTerminalToDevcontainer()
-				}()
+		case parser.Config.DockerComposeFile != nil && len(*parser.Config.DockerComposeFile) > 0:
+			slog.Warn("SUPPORT FOR COMPOSER PROJECTS IS INCOMPLETE")
+			if err = trillClient.DeployComposerProject(&parser, imageName, ImageTagPrefix, cmd.suppressOutput); err != nil {
+				slog.Error("encountered an error while trying to build a Compose project", "error", err)
 			}
 
-		case trill.LifecyclePostAttach:
-			slog.Debug("lifecycle", "event", "postAttach")
-
-		case trill.LifecyclePostCreate:
-			slog.Debug("lifecycle", "event", "postCreate")
-			if *p.Config.WaitFor == writ.WaitForPostCreateCommand {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					errChan <- c.AttachHostTerminalToDevcontainer()
-				}()
+		case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
+			imageTag = *parser.Config.Image
+			if err = trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
+				slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
+			} else if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 			}
 
-		case trill.LifecyclePostStart:
-			slog.Debug("lifecycle", "event", "postStart")
-			if *p.Config.WaitFor == writ.WaitForPostStartCommand {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					errChan <- c.AttachHostTerminalToDevcontainer()
-				}()
-			}
-
-		case trill.LifecycleUpdate:
-			slog.Debug("lifecycle", "event", "update")
-			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					errChan <- c.AttachHostTerminalToDevcontainer()
-				}()
-			}
+		default:
+			return fmt.Errorf("devcontainer.json specifies an unsupported mode of operation; exiting")
 		}
+		return err
+	})
+
+	if err = eg.Wait(); err != nil {
+		slog.Error("errgroup encountered an error", "error", err)
+		return ExitError
 	}
+
+	slog.Debug("exiting cleanly")
+	return ExitNormal
 }
 
 // Try to generate a distinct yet meaningful name for the generated
