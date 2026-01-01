@@ -57,23 +57,28 @@ func (c *Client) StartDevcontainerContainer(p *writ.Parser, imageTag string, con
 		return err
 	}
 
-	return c.StartContainer(p, containerCfg, hostCfg, containerName)
+	return c.StartContainer(p, containerCfg, hostCfg, containerName, true)
 }
 
-// StartContainer starts an existing container and attaches the
-// current terminal to it to enable its usage.
-func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string) error {
-	if err := c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
-		slog.Error("encountered an error binding forwardPorts items", "error", err)
-		return err
+// StartContainer creates a container based on the passed in arguments
+// then starts it.
+func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string, isDevcontainer bool) error {
+	if isDevcontainer {
+		if err := c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
+			slog.Error("encountered an error binding forwardPorts items", "error", err)
+			return err
+		}
+		c.bindMounts(p, hostCfg)
+
+		// Lifecycle: initialize
+		c.DevcontainerLifecycleChan <- LifecycleInitialize
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
 	}
-	c.bindMounts(p, hostCfg)
 
 	slog.Debug("using container config", "config", containerCfg)
 	slog.Debug("using host config", "config", hostCfg)
-
-	// Lifecycle: initialize
-	c.DevcontainerLifecycleChan <- LifecycleInitialize
 
 	ctx := context.Background()
 	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
@@ -89,46 +94,58 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 		slog.Error("encountered an error creating a container", "error", err)
 		return err
 	}
-	c.ContainerID = createResp.ID
-	slog.Debug("container created successfully", "id", c.ContainerID)
+	slog.Debug("container created successfully", "id", createResp.ID)
 
-	// "Cheat" a little bit by attaching to the container immediately
-	// after creation.
-	//
-	// Attaching to a container before it even starts prevents missing
-	// a log replay upon attachment.
-	//
-	// A symptom of that is needing to input something
-	// after the container is attached to, to get, say, the shell
-	// prompt to appear.
-	slog.Debug("attempting to attach to container", "id", c.ContainerID)
-	attachResp, err := c.mobyClient.ContainerAttach(ctx, c.ContainerID, mobyclient.ContainerAttachOptions{
-		Logs:   true,
-		Stderr: true,
-		Stdin:  true,
-		Stdout: true,
-		Stream: true,
-	})
-	if err != nil {
-		slog.Error("encountered an error attaching to the container", "error", err)
-		return err
+	if isDevcontainer {
+		c.ContainerID = createResp.ID
+
+		// "Cheat" a little bit by attaching to the container immediately
+		// after creation.
+		//
+		// Attaching to a container before it even starts prevents missing
+		// a log replay upon attachment.
+		//
+		// A symptom of that is needing to input something
+		// after the container is attached to, to get, say, the shell
+		// prompt to appear.
+		slog.Debug("attempting to attach to container", "id", c.ContainerID)
+		attachResp, err := c.mobyClient.ContainerAttach(ctx, c.ContainerID, mobyclient.ContainerAttachOptions{
+			Logs:   true,
+			Stderr: true,
+			Stdin:  true,
+			Stdout: true,
+			Stream: true,
+		})
+		if err != nil {
+			slog.Error("encountered an error attaching to the container", "error", err)
+			return err
+		}
+		slog.Debug("successfully attached to container", "id", c.ContainerID)
+		c.attachResp = &attachResp
+
+		// Lifecycle hooks
+		c.DevcontainerLifecycleChan <- LifecycleOnCreate
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
+		c.DevcontainerLifecycleChan <- LifecycleUpdate
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
+		c.DevcontainerLifecycleChan <- LifecyclePostCreate
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
 	}
-	slog.Debug("successfully attached to container", "id", c.ContainerID)
-	c.attachResp = &attachResp
 
-	// Lifecycle hooks
-	c.DevcontainerLifecycleChan <- LifecycleOnCreate
-	c.DevcontainerLifecycleChan <- LifecycleUpdate
-	c.DevcontainerLifecycleChan <- LifecyclePostCreate
-
-	slog.Debug("attempting to start container", "id", c.ContainerID)
+	slog.Debug("attempting to start container", "id", createResp.ID)
 	// TODO: Support the container initialization options/operations
 	// exposed by the devcontainer spec
-	if _, err := c.mobyClient.ContainerStart(ctx, c.ContainerID, mobyclient.ContainerStartOptions{}); err != nil {
+	if _, err := c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
 		slog.Error("encountered an error while trying to start the container", "error", err)
 		return err
 	}
-	slog.Debug("container started successfully", "id", c.ContainerID)
+	slog.Debug("container started successfully", "id", createResp.ID)
 
 	return nil
 }
