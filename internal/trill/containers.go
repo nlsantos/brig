@@ -170,6 +170,10 @@ func (c *Client) StopDevcontainer() {
 // This allows usage of the container in a terminal as one would,
 // e.g., a regular shell
 func (c *Client) AttachHostTerminalToDevcontainer() (err error) {
+	defer func() {
+		close(c.DevcontainerLifecycleChan)
+	}()
+
 	slog.Debug("attempting to attach host terminal to container", "container", c.ContainerID)
 	if c.attachResp == nil {
 		return fmt.Errorf("attempted to attach host terminal without a container connection")
@@ -225,9 +229,11 @@ func (c *Client) AttachHostTerminalToDevcontainer() (err error) {
 	}()
 
 	c.DevcontainerLifecycleChan <- LifecyclePostAttach
+	if ok := <-c.DevcontainerLifecycleResp; !ok {
+		return ErrLifecycleHandler
+	}
 
 	wg.Wait()
-	close(c.DevcontainerLifecycleChan)
 	slog.Debug("detached from container", "id", c.ContainerID)
 
 	return nil
