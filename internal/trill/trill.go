@@ -56,7 +56,6 @@ type Client struct {
 	// the container named in the service field) lifecycle events on
 	DevcontainerLifecycleChan chan LifecycleEvents
 	DevcontainerLifecycleResp chan bool
-	MakeMeRoot                bool                   // If true, will ensure that the current user gets mapped as root inside the container
 	Platform                  Platform               // Platform details for any containers created
 	PrivilegedPortElevator    PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
 	SocketAddr                string                 // The socket/named pipe used to communicate with the server
@@ -80,11 +79,10 @@ type Platform struct {
 //
 // If it encounters an error creating the underlying connection, it
 // panics.
-func NewClient(socketAddr string, makeMeRoot bool) *Client {
+func NewClient(socketAddr string) *Client {
 	c := &Client{
 		DevcontainerLifecycleChan: make(chan LifecycleEvents),
 		DevcontainerLifecycleResp: make(chan bool, 1),
-		MakeMeRoot:                makeMeRoot,
 		SocketAddr:                socketAddr,
 	}
 

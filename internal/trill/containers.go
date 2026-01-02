@@ -142,6 +142,15 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 		}
 		c.bindMounts(p, hostCfg)
 
+		if *p.Config.UpdateRemoteUserUID {
+			if *p.Config.ContainerUser == "root" {
+				// This doesn't seem to faze Docker (tested on Windows 11
+				// + Docker Desktop 4.55.0 (213807)) like I thought it
+				// would, so I'm just gonna leave this is.
+				hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
+			}
+		}
+
 		// Lifecycle: initialize
 		c.DevcontainerLifecycleChan <- LifecycleInitialize
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
@@ -358,10 +367,6 @@ func (c *Client) buildHostConfig(p *writ.Parser) *container.HostConfig {
 		CapAdd:       p.Config.CapAdd,
 		PortBindings: make(network.PortMap),
 		Privileged:   *p.Config.Privileged,
-	}
-
-	if c.MakeMeRoot {
-		hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
 	}
 
 	return &hostCfg
