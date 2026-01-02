@@ -240,7 +240,6 @@ func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *compose
 }
 
 func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.HostConfig {
-	isServiceContainer := *p.Config.Service == serviceCfg.Name
 	hostCfg := container.HostConfig{
 		PortBindings:   make(network.PortMap),
 		AutoRemove:     false, // This is handled when the project is torn down
@@ -303,10 +302,6 @@ func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes
 		} else {
 			hostCfg.Binds = append(hostCfg.Binds, volume.String())
 		}
-	}
-
-	if isServiceContainer && c.MakeMeRoot {
-		hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
 	}
 
 	return &hostCfg
