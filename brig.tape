@@ -10,8 +10,9 @@ Set Height 600
 Type "cd ~/Garage/brig/main" Sleep 500ms  Enter Sleep 1s
 Type "ls -la" Sleep 500ms  Enter Sleep 1s
 Type "whoami" Sleep 500ms  Enter Sleep 1s
-Type "./brig -R -v" Sleep 500ms Enter Sleep 10s
+Type "./brig -v" Sleep 500ms Enter Sleep 15s
 Type "ls -la" Sleep 500ms  Enter Sleep 1s
 Type "whoami" Sleep 500ms  Enter Sleep 1s
+Type "go build ./cmd/brig" Sleep 500ms  Enter Sleep 15s
 Ctrl+D Sleep 500ms
 Type "./brig --version" Sleep 500ms Enter Sleep 5s
