@@ -39,14 +39,6 @@
 ## below.
 #port-offset = 8000           # can also be p=<NUM>
 
-## If true, maps your UID and GID to 0:0 inside the devcontainer;
-## i.e., you will be root. This is currently Podman-only, and is
-## useful if, like me, your containers.conf has userns set to
-## "keep-id" (and you want to keep it that way).
-##
-## Note that enabling this when using Docker will lead to lossage.
-#make-me-root = true          # can also be R=true
-
 ## Specify socket address (named pipe on Windows) on which Podman or
 ## Docker is listening.
 ##

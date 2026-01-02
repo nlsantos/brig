@@ -95,7 +95,6 @@ type Command struct {
 		Help         options.Help  `getopt:"-h --help display this help message"`
 		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
 		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
-		MakeMeRoot   bool          `getopt:"-R --make-me-root map your UID to root in the container (Podman-only)"`
 		PlatformArch string        `getopt:"-a --platform-arch target architecture for the container; defaults to amd64"`
 		PlatformOS   string        `getopt:"-o --platform-os target operating system for the container; defaults to linux"`
 		PortOffset   uint16        `getopt:"-p --port-offset=UINT number to offset privileged ports by"`
@@ -141,7 +140,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 		return ExitNoSocketFound
 	}
 
-	trillClient := trill.NewClient(socketAdddr, cmd.Options.MakeMeRoot)
+	trillClient := trill.NewClient(socketAdddr)
 	trillClient.Platform = trill.Platform{
 		Architecture: cmd.Options.PlatformArch,
 		OS:           cmd.Options.PlatformOS,
@@ -476,10 +475,6 @@ func (cmd *Command) parseOptions(appName string, appVersion string) {
 	}
 
 	cmd.suppressOutput = logLevel.Level() > slog.LevelInfo
-
-	if cmd.Options.MakeMeRoot {
-		slog.Info("will be mapping your UID and GID to 0:0 inside the container")
-	}
 }
 
 // privilegedPortElevator is the function called by trill when
