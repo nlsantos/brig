@@ -273,7 +273,7 @@ func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes
 	}
 
 	for _, portCfg := range serviceCfg.Ports {
-		portNumInt, err := strconv.Atoi(portCfg.Published)
+		portNumInt, err := strconv.ParseInt(portCfg.Published, 10, 16)
 		portNum := uint16(portNumInt)
 		if err != nil {
 			slog.Error("published port cannot be converted to an int", "service", serviceCfg.Name, "port", portCfg.Published)
