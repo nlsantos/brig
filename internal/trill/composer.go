@@ -391,7 +391,6 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 
 	slog.Debug("creating Composer service container", "name", containerName)
 	if *p.Config.Service == serviceCfg.Name {
-		hostCfg.PortBindings = make(network.PortMap)
 		if p.Config.ContainerUser != nil {
 			containerCfg.User = *p.Config.ContainerUser
 		}
