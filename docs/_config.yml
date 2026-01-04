@@ -6,7 +6,7 @@ author:
 
 remote_theme: "jekyll/minima@master"
 plugins:
-- jekyll-remote-theme
+  - jekyll-remote-theme
 
 minima:
   nav_pages:
