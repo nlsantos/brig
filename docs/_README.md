@@ -9,6 +9,8 @@
 
 ![`brig` running its own devcontainer](https://nlsantos.github.io/brig/demo.gif)
 
+_These docs are also available on [https://nlsantos.github.io/brig/](https://nlsantos.github.io/brig/)_
+
 ## Table of contents
 
 - [Prerequisites](#prerequisites)
@@ -42,7 +44,7 @@ brew install nlsantos/tap/brig
 
 ### Manual install
 
-Download the [latest release](releases) for your platform and extract the binary to a directory in your `$PATH` (e.g., `~/.local/bin`).
+Download the [latest release](https://github.com/nlsantos/brig/releases) for your platform and extract the binary to a directory in your `$PATH` (e.g., `~/.local/bin`).
 
 ### Usage
 
@@ -85,7 +87,7 @@ While `brig` is currently in **alpha**, it supports the core devcontainer workfl
 - **Networking:** Binds ports specified in `appPorts` and `forwardPorts`.
 - **Variable expansion:** Robust variable expansion inspired by standard Unix shells powered by [mvdan/sh](https://github.com/mvdan/sh).
 
-_For a more expansive list of features, refer to [docs/features.md](docs/features.md)._
+_For a more expansive list of features, refer to [docs/features.md](https://nlsantos.github.io/brig/features.html)._
 
 ## Alternatives
 
@@ -104,7 +106,7 @@ These are the known differences with the observed behavior of Visual Studio Code
 - **Privileged ports remapping:** Instead of privilege elevation, `brig` offsets the port number on host side by a preset figure (defaults to `8000` but can be set via the `-p` or `--port-offset` flags).
 - **`appPort` vs `forwardPorts`:** `brig` prefers `appPort` for predictable host mapping.
 
-For a detailed technical explanation of these design choices, see [docs/ports.md](docs/ports.md).
+For a detailed technical explanation of these design choices, see [docs/ports.md](https://nlsantos.github.io/brig/ports.html).
 
 ### Ephemeral containers
 
