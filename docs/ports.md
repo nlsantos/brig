@@ -1,3 +1,8 @@
+---
+layout: page
+title: Port management
+sidebar_link: true
+---
 # Port management
 
 ## Privilege elevation

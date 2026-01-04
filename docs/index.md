@@ -1,6 +1,6 @@
 ---
-layout: page
-title: "brig: devcontainers without the bloat"
+layout: index
+title: Home
 ---
 
 {% include_relative _README.md %}

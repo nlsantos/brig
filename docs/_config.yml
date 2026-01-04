@@ -1,32 +1,13 @@
 title: brig
+tagline: devcontainers without the bloat
 description: The lightweight, native Go CLI for devcontainers
 author:
   name: Neil Santos
   email: nlsantos@users.noreply.github.com
 
-remote_theme: "jekyll/minima@master"
+remote_theme: "fongandrew/hydeout@master"
 plugins:
   - jekyll-remote-theme
 
-minima:
-  nav_pages:
-    - features.md
-    - ports.md
-  show_excerpts: true
-  skin: auto
-  social_links:
-    - title: GitHub
-      icon: github
-      url: "https://github.com/nlsantos"
-    - title: BlueSky
-      icon: bluesky
-      url: "https://bsky.app/profile/nsantos16.bsky.social"
-    - title: Reddit
-      icon: reddit
-      url: "https://www.reddit.com/user/nl_santos/"
-    - title: Signal
-      icon: signal-messenger
-      url: "https://signal.me/#eu/hiaavHs3Lxy3OhZpBUiih4rSy5UYAWb9xxHLHKZAwa8F35fipcVHKbGNclmQVvjS"
-    - title: Threema
-      icon: 3
-      url: "https://threema.id/PSJDMMJJ"
+hydeout:
+  repo: https://github.com/nlsantos/brig

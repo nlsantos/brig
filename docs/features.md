@@ -1,5 +1,8 @@
-# Features
-
+---
+layout: page
+title: Features
+sidebar_link: true
+---
 Keep in mind that `brig` is still very much alpha software at this point. While as of [38d4ae1](../commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
 
 That said, here's a list of what `brig` can do:
