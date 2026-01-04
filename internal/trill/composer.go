@@ -57,11 +57,13 @@ func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTag
 		compose.WithWorkingDirectory(*p.Config.Context),
 	)
 	if err != nil {
+		slog.Error("encountered an error while creating project options", "error", err)
 		return err
 	}
 
 	c.composerProject, err = compose.ProjectFromOptions(projOptions)
 	if err != nil {
+		slog.Error("encountered an error while trying to create a project from options", "error", err)
 		return err
 	}
 
