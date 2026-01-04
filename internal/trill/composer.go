@@ -190,8 +190,6 @@ func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppr
 // composetypes.ServiceConfig; it is eventually used to provision the
 // container for the target service.
 func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.Config {
-	isServiceContainer := *p.Config.Service == serviceCfg.Name
-
 	// We mostly want the Env field and some defaults set...
 	containerCfg := c.buildContainerConfig(p, serviceCfg.Image)
 	// ... we overwrite where needed
@@ -229,14 +227,8 @@ func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *compose
 		}
 	}
 
-	if isServiceContainer {
-		if p.Config.ContainerUser != nil {
-			containerCfg.User = *p.Config.ContainerUser
-		}
-	} else {
-		containerCfg.User = serviceCfg.User
-		containerCfg.WorkingDir = serviceCfg.WorkingDir
-	}
+	containerCfg.User = serviceCfg.User
+	containerCfg.WorkingDir = serviceCfg.WorkingDir
 
 	return containerCfg
 }
@@ -400,6 +392,14 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	slog.Debug("creating Composer service container", "name", containerName)
 	if *p.Config.Service == serviceCfg.Name {
 		hostCfg.PortBindings = make(network.PortMap)
+		if p.Config.ContainerUser != nil {
+			containerCfg.User = *p.Config.ContainerUser
+		}
+
+		if p.Config.WorkspaceFolder != nil {
+			containerCfg.WorkingDir = *p.Config.WorkspaceFolder
+		}
+
 		return c.StartContainer(p, containerCfg, hostCfg, containerName, true)
 	}
 
