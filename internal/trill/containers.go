@@ -32,6 +32,7 @@ import (
 	"syscall"
 
 	"github.com/docker/go-connections/nat"
+	imagespec "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
@@ -141,6 +142,11 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 			return err
 		}
 		c.bindMounts(p, hostCfg)
+
+		if err := c.setContainerAndRemoteUser(p, containerCfg.Image); err != nil {
+			slog.Error("encountered an error while attempting to determine container/remote user", "image", containerCfg.Image, "error", err)
+			return err
+		}
 
 		if *p.Config.UpdateRemoteUserUID {
 			if *p.Config.ContainerUser == "root" {
@@ -496,6 +502,32 @@ func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
 		}
 		hostCfg.Mounts = mounts
 	}
+}
+
+// setContainerAndRemoteUser tries to determine what value the
+// containerUser and remoteUser fields should have based on a target
+// image, provided they're not already set.
+func (c *Client) setContainerAndRemoteUser(p *writ.Parser, imageTag string) (err error) {
+	if p.Config.ContainerUser == nil {
+		slog.Info("containerUser not set; attempting to figure it out using image metadata")
+		var imageCfg imagespec.DockerOCIImageConfig
+		if imageCfg, err = c.InspectImage(imageTag); err == nil {
+			imageUser := imageCfg.User
+			if len(imageUser) == 0 {
+				imageUser = "root"
+			}
+			p.Config.ContainerUser = &imageUser
+		}
+	} else {
+		slog.Debug("containerUser already set; skipping image metadata inspection", "user", *p.Config.ContainerUser)
+	}
+
+	if err == nil && p.Config.RemoteUser == nil {
+		slog.Info("remoteUser not set; setting to be the same as containerUser", "user", *p.Config.ContainerUser)
+		p.Config.RemoteUser = p.Config.ContainerUser
+	}
+
+	return err
 }
 
 // switchTerminalToRaw attempts to switch the current terminal to raw
