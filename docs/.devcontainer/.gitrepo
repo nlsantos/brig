@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = git@github.com:nlsantos/devcontainer-jekyll.git
+	branch = main
+	commit = 762a0f7269a1d437e54e0e95755f300e628252bb
+	parent = 1c04e8e3e4a51d7a571b822584ba813ea326903d
+	method = merge
+	cmdver = 0.4.6

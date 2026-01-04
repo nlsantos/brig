@@ -1,0 +1,3 @@
+_site
+# This is on purpose so GitHub can install whatever it wants
+Gemfile.lock

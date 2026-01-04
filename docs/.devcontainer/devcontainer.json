@@ -1,0 +1,7 @@
+{
+  "name": "Jekyll devcontainer",
+  "dockerComposeFile": "./compose.yml",
+  "workspaceFolder": "/site",
+  "service": "jekyll",
+  "shutdownAction": "stopCompose"
+}
