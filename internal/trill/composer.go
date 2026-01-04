@@ -241,7 +241,7 @@ func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *compose
 	return containerCfg
 }
 
-func (c *Client) buildServiceHostConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.HostConfig {
+func (c *Client) buildServiceHostConfig(serviceCfg *composetypes.ServiceConfig) *container.HostConfig {
 	hostCfg := container.HostConfig{
 		PortBindings:   make(network.PortMap),
 		AutoRemove:     false, // This is handled when the project is torn down
@@ -379,7 +379,7 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 	c.waitForServiceDependencies(&serviceCfg.DependsOn)
 
 	containerCfg := c.buildServiceContainerConfig(p, serviceCfg)
-	hostCfg := c.buildServiceHostConfig(p, serviceCfg)
+	hostCfg := c.buildServiceHostConfig(serviceCfg)
 	if serviceCfg.Build != nil {
 		buildOpts, err := c.buildServiceBuildOpts(serviceCfg.Build, suppressOutput)
 		if err != nil {
