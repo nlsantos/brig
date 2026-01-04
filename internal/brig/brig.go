@@ -184,6 +184,11 @@ func NewCommand(appName string, appVersion string) ExitCode {
 
 		case parser.Config.DockerComposeFile != nil && len(*parser.Config.DockerComposeFile) > 0:
 			slog.Warn("SUPPORT FOR COMPOSER PROJECTS IS INCOMPLETE")
+			invalidProjectNamePattern := regexp.MustCompile("[^a-zA-Z0-9_-]")
+			// Replace non-valid characters for Composer project names
+			// with an underscore
+			projName := invalidProjectNamePattern.ReplaceAllString(imageName, "_")
+			if err = trillClient.DeployComposerProject(&parser, projName, ImageTagPrefix, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build a Compose project", "error", err)
 			}
 
