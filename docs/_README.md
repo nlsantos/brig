@@ -1,7 +1,7 @@
 # The lightweight, native Go CLI for devcontainers
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nlsantos/brig)](https://goreportcard.com/report/github.com/nlsantos/brig)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/nlsantos/brig/blob/main/LICENSE)
 [![GitHub release](https://img.shields.io/github/release/nlsantos/brig.svg)](https://github.com/nlsantos/brig/releases)
 ![Commits since last release](https://img.shields.io/github/commits-since/nlsantos/brig/latest)
 
