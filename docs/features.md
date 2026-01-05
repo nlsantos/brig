@@ -3,50 +3,77 @@ layout: page
 title: Features
 sidebar_link: true
 ---
-Keep in mind that `brig` is still very much alpha software at this point. While as of [38d4ae1](../commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` is being developed inside a devcontainer ran by itself, it's still missing support for a lot of fields.
+> 🐶 Since [`38d4ae1`](https://github.com/nlsantos/brig/commit/38d4ae10557422c37af349c9df3b460c343d487c), `brig` has been developed inside a devcontainer managed by itself.
 
-That said, here's a list of what `brig` can do:
+While it is still  **alpha software**, `brig` supports enough features of the spec that make it a viable tool for most common uses of devcontainers.
 
-## Operations
+| Category | Feature | Status | Notes |
+| :------- | :------ | :----: | :---- |
+| **Core operations** | **Configuration discovery** | ✅️ | Auto-discovers if config is in [one of the paths noted by the spec](https://containers.dev/implementors/spec/#devcontainerjson); can also specify a target path via flags |
+| | **Validation** | ✅️ | Validates config against [the official spec](https://raw.githubusercontent.com/devcontainers/spec/d424cc157e9a110f3bf67d311b46c7306d5a465d/schemas/devContainer.base.schema.json) |
+| **Container configuration** | **`capAdd`** | ✅️ | Fully supported |
+| | **`privileged`** | ✅️ | Fully supported [with caveats](#privileged-mode) |
+| | **[Host requirements](https://containers.dev/implementors/json_reference/#min-host-reqs)** | ❓️ | Planned, but low priority |
+| **Environment variables** | **[Special variables](https://containers.dev/implementors/json_reference/#variables-in-devcontainerjson)** | ✅️️️ | Fully supported |
+| | **Variable expansion** | ✅️️️ | Fully supported, with [extra features](#variable-expansion) |
+| **Lifecycle** | **Image-based** | ✅️ | Pulls from remote registries |
+| | **Build-based** | ⚠️️ | Builds via `dockerFile` using `context`; support for `build.*` fields is a WIP |
+| | **Composer project** | ⚠️️️ | Multiple services via `dockerComposeFile`; support for `runServices` is a WIP |
+| | **[Lifecycle scripts](https://containers.dev/implementors/json_reference/#lifecycle-scripts)** | ✅️ | Supports `initializeCommand`, `postCreateCommand`, etc. and running as a separate user via `remoteUser` |
+| | **`runArgs`** | ❓️ | Planned, but low priority |
+| **Exposing services** | **Port forwarding** | ✅️ | Supports `appPorts` and `forwardPorts` without needing admin rights; see [ports management](ports.md) |
+| **File/volume management** | **`mounts` field** | ✅️ | Fully supported (including variable expansion) |
+| | **File ownership** | ⚠️ | For containers where the user is `root`, ownership **Just Works**; support for containers that use a non-`root` user internally is a WIP |
+| **Workflow** | **Terminal attachment** | ✅️ | Automatically attaches your terminal to the devcontainer once it's ready |
+| | **Cleanup** | ✅️ | Automatically tears down containers upon the devcontainer's exit |
 
-- [x] Automatically finding `devcontainer.json` files as per the spec
-- [x] Supports specifying a path for a `devcontainer.json` through a command-line parameter, if your config doesn't conform to the expected naming
-- [x] Specifying the socket address to use to connect to the container daemon, in case `brig` can't find it automatically
+## No elaborate pre-setup rituals
 
-## Parsing and validation
+> **Just `cd` into your project's directory and run `brig`.**
 
-- [x] Validation of the target `devcontainer.json` file against the official spec
+That's it: `brig` doesn't need a separate configuration file if its defaults suffice for your needs.
 
-## Basic container operations
+- **No monitoring image builds just to know when to run an attach command.** _`brig` will attach your terminal to the devcontainer automatically._
+- **No need to run a different command to run something in the container.** _Once your terminal is attached, just run commands as you normally would._
+- **No need to run _yet another command_ to clean up.** _`brig` will clean up after your devcontainer exits._
 
-- [x] Pulling the image specified `image` field from remote registries
-- [x] Building an image based on the `dockerFile` field, targeting the value of the `context` field
-- [x] Creating a container based on the image it builds
-- [x] Attaching the terminal to the container
-  - [x] Resizing the internal pseudo-TTY of the container dynamically based on your terminal's reported dimensions
-- [x] (_Very_) basic support for forwarding ports; see additional notes [re: privilege elevation](../#port-management--networking) and [re: forwarding methods](ports.md).
+## Security-minded
 
-## Composer projects
-- [x] Support for spinning up Composer projects
-- [x] Building containers via either Containerfiles/Dockerfiles or `image`.
-- [x] Automatic teardown of Composer projects upon exiting from the devcontainer
+- **Local-only binding:** By default, `brig` binds ports to `127.0.0.1`. Your development services remain accessible to you, but hidden from the local network.
+- **No `root` required:** `brig` **does not** use privilege escalation to bind low-numbered ports. Instead, it *offsets* them. See [docs/ports.md](ports.md) for details.
+- **Offline capable:** `brig` makes no network calls other than to the OCI runtime's REST API. If your images are pre-downloaded, you can build and run devcontainers entirely offline.
 
-## devcontainer-specific features
+## Keep things readable
 
-- [x] Specifying a specific user/UID to use inside the devcontainer via the `containerUser` field
-- [x] Support for [lifecycle scripts](https://containers.dev/implementors/json_reference/#lifecycle-scripts), including the ability to specify which user they should run as via the `remoteUser` field
-- [x] Specifying kernel capabilities to add to the container via the `capAdd` field
-- [x] Specifying that the container should run in privileged mode via the `privileged` field
-- [x] Special environment variables (`containerWorkspaceFolder`, `localEnv`, etc.) work!
-  - Okay, they _partially_ work: `${containerEnv:*}` is a work in progress
-- [x] Variable expansion (e.g., `${env:UNDEF_VAR:-default}` returns "default" if `UNDEF_VAR` doesn't exist)
-- [x] Mounting volumes as specified by the `mounts` field
-  - [x] Using variables and variable expansion in `mounts` items work as expected
+Instead of generic container IDs, `brig` will try to use metadata from your project to generate names that make sense at a glance.
 
-## Useful extras
+For example, my `brig` worktree in `~/brig/main` has a top-level devcontainer, while the `docs` directory has its own that uses a Composer project.
 
-Variable expansions go a little farther than what's available in the devcontainer spec: You can even do some other shell-inspired things with them, as long as they're supported by the [mvdan.cc/sh/v3](https://github.com/mvdan/sh) package. For examples of what operations are supported, refer to [writ/writ_test.go](../writ/writ_test.go).
+```text
+~/brig/main/           <-- Running 'brig' here creates the devcontainer: 'brig--main'
+ └── .devcontainer/
+ └── docs/             <-- Running 'brig' here creates a Composer project with two containers:
+   └── .devcontainer/      'brig--main--jekyll' and 'brig--main--jekyll-serve'
+```
 
-Check out [Bash's Shell Parameter Expansion](https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html) to get an idea of what you can do. Just be aware that not all of them will be supported, or even make sense in this context.
+This makes it easy to distinguish between environments especially useful when you have multiple projects with devcontainers running at the same time.
 
-That said, _being able to_ doesn't mean you _should_, as relying on features outside of the devcontainer spec will necessarily mean you'll be sacrificing interoperability.
+Readability extends to images built via `Containerfile`, and is very useful if you're utilizing [Git's worktrees](https://git-scm.com/docs/git-worktree).
+
+For example, if your devcontainer uses a `Containerfile` to build a custom image, the generated image will be named `localhost/devc--<basename>--<branch>>`, making image management easier.
+
+### Privileged mode
+
+Unless you are running as `root` on the host, running a privileged container under [podman](https://podman.io) is not the same as running it under Docker.
+
+_See [podman's documentation on the `--privileged` flag](https://docs.podman.io/en/v4.6.1/markdown/options/privileged.html)._
+
+### Variable expansion
+
+Variable expansion in `brig` go a little farther than what's available in the devcontainer spec: You can even do some other shell-inspired things with them, as long as they're supported by the [mvdan.cc/sh/v3](https://github.com/mvdan/sh) package.
+
+For examples of what operations are supported, refer to [writ/writ_test.go](https://github.com/nlsantos/brig/blob/main/writ/writ_test.go).
+
+Refer to [Bash's Shell Parameter Expansion](https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html) to get an idea of what you can do. Just be aware that not all of them will be supported, or even make sense in the context of devcontainer configuration.
+
+> ⚠️ **Extended variable expansion  is not supported by the devcontainer spec.** Using it will break compatibility with Visual Studio Code and other devcontainer implementations.
