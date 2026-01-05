@@ -64,9 +64,10 @@ const DefWorkspacePath string = "/workspace"
 // A Parser contains metadata about a target devcontainer.jkson file,
 // as well as the configuration for the intended devcontainer itself.
 type Parser struct {
-	Filepath      string             // Path to the target devcontainer.json
-	Config        DevcontainerConfig // The parsed contents of the target devcontainer.json
-	IsValidConfig bool               // Whether or not the contents of the devcontainer.json conform to the spec; see p.Validate()
+	Filepath       string             // Path to the target devcontainer.json
+	Config         DevcontainerConfig // The parsed contents of the target devcontainer.json
+	DevcontainerID *string            // The runtime-specific ID for the devcontainer; not available until after it's created
+	IsValidConfig  bool               // Whether or not the contents of the devcontainer.json conform to the spec; see p.Validate()
 
 	defaultValues    map[string]any // Default values of various fields keyed by their name
 	standardizedJSON []byte         // The raw contents of the target devcontainer.json, converted to standard JSON
@@ -218,6 +219,11 @@ func (p *Parser) expandEnv(v string) string {
 		return DefWorkspacePath
 	case v == "containerWorkspaceFolderBasename":
 		return filepath.Base(DefWorkspacePath)
+	case v == "devcontainerId":
+		if p.DevcontainerID != nil {
+			return *p.DevcontainerID
+		}
+		return ""
 	case v == "localWorkspaceFolder":
 		return *p.Config.Context
 	case v == "localWorkspaceFolderBasename":
