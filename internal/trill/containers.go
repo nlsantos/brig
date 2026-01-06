@@ -236,6 +236,10 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
 			return ErrLifecycleHandler
 		}
+		c.DevcontainerLifecycleChan <- LifecyclePostStart
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
 	}
 
 	return nil
