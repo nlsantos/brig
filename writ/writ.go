@@ -230,7 +230,9 @@ func (p *Parser) expandEnv(v string) string {
 		return filepath.Base(*p.Config.Context)
 	case strings.HasPrefix(v, "containerEnv__"):
 		envKey := strings.SplitN(v, "__", 2)
-		slog.Error("container env var looks are not yet implemented", "var", envKey[1])
+		if val, ok := p.Config.ContainerEnv[envKey[1]]; ok {
+			return val
+		}
 		return ""
 	default:
 		return os.Getenv(v)
