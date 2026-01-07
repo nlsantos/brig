@@ -17,8 +17,7 @@
 
 `brig` reads your `devcontainer.json` configuration and spins up a containerized development environment. It is designed as a standalone, dependency-free alternative to the [official command-line tool](https://github.com/devcontainers/cli) with first-class support for [podman](https://podman.io/) and rootless workflows.
 
-> [!NOTE]
-> These docs are also available on [https://nlsantos.github.io/brig/](https://nlsantos.github.io/brig/)
+_These docs are also available on [https://nlsantos.github.io/brig/](https://nlsantos.github.io/brig/)_
 
 ## Table of contents
 
@@ -63,8 +62,7 @@ Download the [latest release](https://github.com/nlsantos/brig/releases) for you
 
 - Wait for the build to complete. Once finished, your terminal will be attached to the devcontainer.
 
-> [!WARNING]
-> `brig` treats containers as ephemeral. When you exit the shell, the container is removed. Ensure all persistent work is saved in your project directory (which is mounted) or defined in the `devcontainer.json` configuration.
+> ⚠️ Note on persistence: `brig` treats containers as ephemeral. When you exit the shell, the container is removed. Ensure all persistent work is saved in your project directory (which is mounted) or defined in the `devcontainer.json` configuration.
 
 ### Options
 
