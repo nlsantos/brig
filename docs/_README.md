@@ -5,9 +5,17 @@
 [![GitHub release](https://img.shields.io/github/release/nlsantos/brig.svg)](https://github.com/nlsantos/brig/releases)
 ![Commits since last release](https://img.shields.io/github/commits-since/nlsantos/brig/latest)
 
-`brig` reads your `devcontainer.json` configuration and spins up a containerized development environment. It is designed as a standalone, dependency-free alternative to the [official command-line tool](https://github.com/devcontainers/cli) with first-class support for [podman](https://podman.io/) and rootless workflows.
+> Like the [convenience and reproducibility devcontainers can provide](https://dev.to/mattchenderson/why-i-m-obsessed-with-dev-containers-2pf7), but prefer **Emacs**, **Vim**, **Helix**, etc.?  Not a fan of Node.js or the mess that is `node_modules`?
+>
+> Would you rather use **podman** for its [more security-minded approach](https://dev.to/mettasurendhar/rootless-containers-what-they-are-and-why-you-should-use-them-3p16)? Or maybe you wouldn't be caught dead using anything other than **FreeBSD**?
+>
+> If any of those are true for you, you might like `brig`.
 
 ![`brig` running its own devcontainer](https://nlsantos.github.io/brig/demo.gif)
+
+> **TL;DR:** [Get it](#quick-start), `cd` into your project, run `brig`, enjoy devcontainers.
+
+`brig` reads your `devcontainer.json` configuration and spins up a containerized development environment. It is designed as a standalone, dependency-free alternative to the [official command-line tool](https://github.com/devcontainers/cli) with first-class support for [podman](https://podman.io/) and rootless workflows.
 
 _These docs are also available on [https://nlsantos.github.io/brig/](https://nlsantos.github.io/brig/)_
 
