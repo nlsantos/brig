@@ -6,16 +6,16 @@
 # Uncomment lines and change values as needed.
 
 ## If true, enable ouputting Info level messages
-#verbose = true               # can also be v=true
+#verbose = false              # can also be v=false
 
 ## If true, enable outputting Debug level messages (implies
 ## verbose=true); WARNING: this can get pretty messy
-#debug = true                 # can also be d=true
+#debug = false                # can also be d=false
 
 ## If true, only performs schema validation and parsing before
 ## exiting; a non-zero exit code means that the devcontainer.json file
 ## it found failed validation or there was an error in parsing it
-#validate = true              # can also be V=true
+#validate = false             # can also be V=false
 
 ## The CPU architecture to target when: building an image based on a
 ## Containerfile, asking for a manifest for a remote image, or when
