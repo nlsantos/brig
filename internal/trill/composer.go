@@ -45,7 +45,7 @@ import (
 //
 // It is not dissimlar for running `docker compose up` inside your
 // codebase.
-func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTagPrefix string, suppressOutput bool) error {
+func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	projOptions, err := compose.NewProjectOptions(
 		[]string(*p.Config.DockerComposeFile),
 		compose.WithConsistency(true),
@@ -108,7 +108,7 @@ func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTag
 		return nil
 	}
 
-	if err := c.createComposerServices(p, spinUpDAG, imageTagPrefix, suppressOutput); err != nil {
+	if err := c.createComposerServices(p, spinUpDAG, imageTagPrefix, skipBuildIfAvailable, skipPullIfAvailable, suppressOutput); err != nil {
 		slog.Error("encountered an error while trying to spin up service(s)", "error", err)
 		return err
 	}
@@ -363,7 +363,7 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 //
 // If it encounters an error, the Error field of its return value is
 // populated.
-func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, suppressOutput bool) error {
+func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
 	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
 	slog.Debug("converting service config to Moby equivalents", "name", containerName)
@@ -378,12 +378,12 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 			return err
 		}
 		buildOpts.Tags = append(buildOpts.Tags, imageTag)
-		if err := c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, suppressOutput); err != nil {
+		if err := c.BuildContainerImage(serviceCfg.Build.Context, serviceCfg.Build.Dockerfile, imageTag, buildOpts, skipBuildIfAvailable, suppressOutput); err != nil {
 			return err
 		}
 		containerCfg.Image = imageTag
 	} else if len(serviceCfg.Image) > 0 {
-		if err := c.PullContainerImage(serviceCfg.Image, suppressOutput); err != nil {
+		if err := c.PullContainerImage(serviceCfg.Image, skipPullIfAvailable, suppressOutput); err != nil {
 			return err
 		}
 		containerCfg.Image = serviceCfg.Image
@@ -412,7 +412,7 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 //
 // It returns the first error it encounters, and is liable to leave
 // the Composer project in an indeterminate state.
-func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, suppressOutput bool) error {
+func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	roots := servicesDAG.GetRoots()
 	for len(roots) > 0 {
 		errChan := make(chan error, len(roots))
@@ -427,7 +427,7 @@ func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, im
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				errChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, suppressOutput)
+				errChan <- c.createComposerService(p, serviceCfg, imageTagPrefix, skipBuildIfAvailable, skipPullIfAvailable, suppressOutput)
 			}()
 		}
 		wg.Wait()

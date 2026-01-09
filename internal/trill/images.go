@@ -45,7 +45,13 @@ import (
 //
 // TODO: Add a flag to toggle deletion of the context tarball after
 // the creation of the OCI image
-func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, imageTag string, buildOpts *mobyclient.ImageBuildOptions, suppressOutput bool) (err error) {
+func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, imageTag string, buildOpts *mobyclient.ImageBuildOptions, skipIfAvailable bool, suppressOutput bool) (err error) {
+	imageTagAvailable := c.IsImageTagAvailable(imageTag)
+	if skipIfAvailable && imageTagAvailable {
+		slog.Info("image tag available locally; skipping building image as instructed", "image", imageTag)
+		return nil
+	}
+
 	slog.Debug("building container image", "tag", imageTag)
 	fmt.Printf("Building image and tagging it as %s...\n", imageTag)
 
@@ -142,8 +148,8 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 // devcontainer.json.
 //
 // This is a very thin wrapper over BuildContainerImage.
-func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, suppressOutput bool) error {
-	return c.BuildContainerImage(*p.Config.Context, *p.Config.DockerFile, imageTag, nil, suppressOutput)
+func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, skipIfAvailable bool, suppressOutput bool) error {
+	return c.BuildContainerImage(*p.Config.Context, *p.Config.DockerFile, imageTag, nil, skipIfAvailable, suppressOutput)
 }
 
 // InspectImage is a very thin wrapper around the ImageInspect API
@@ -168,10 +174,13 @@ func (c *Client) IsImageTagAvailable(imageTag string) bool {
 //
 // TODO: Implement a privilege function to support authentication so
 // images can be pulled from private repositories
-func (c *Client) PullContainerImage(tag string, suppressOutput bool) (err error) {
-	slog.Debug("pulling image tag from remote registry", "tag", tag)
-	fmt.Printf("Pulling %s from remote registry...\n", tag)
-	pullResp, err := c.mobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{
+func (c *Client) PullContainerImage(imageTag string, skipIfAvailable bool, suppressOutput bool) (err error) {
+	imageTagAvailable := c.IsImageTagAvailable(imageTag)
+	if skipIfAvailable && imageTagAvailable {
+		slog.Info("image tag available locally; skipping pulling image as instructed", "image", imageTag)
+		return nil
+	}
+
 	slog.Debug("pulling image tag from remote registry", "tag", imageTag)
 	fmt.Printf("Pulling %s from remote registry...\n", imageTag)
 	pullResp, err := c.mobyClient.ImagePull(context.Background(), imageTag, mobyclient.ImagePullOptions{
