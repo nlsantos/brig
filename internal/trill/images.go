@@ -156,6 +156,13 @@ func (c *Client) InspectImage(imageTag string) (imageCfg *imagespec.DockerOCIIma
 	return inspectResp.Config, nil
 }
 
+// IsImageTagAvailable returns whether or not the container runtime
+// already has an image tagged imageTag.
+func (c *Client) IsImageTagAvailable(imageTag string) bool {
+	imageCfg, err := c.InspectImage(imageTag)
+	return err == nil && imageCfg != nil
+}
+
 // PullContainerImage pulls the OCI image from a remtoe registry so it
 // can be used in the creation of a devcontainer.
 //
