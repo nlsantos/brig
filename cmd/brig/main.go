@@ -23,7 +23,7 @@ import (
 )
 
 const AppName string = "brig"
-const AppVersion string = "0.0.9-alpha"
+const AppVersion string = "0.0.10-alpha"
 
 func main() {
 	os.Exit(int(brig.NewCommand(AppName, AppVersion)))
