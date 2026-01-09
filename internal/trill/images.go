@@ -148,9 +148,12 @@ func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, suppres
 
 // InspectImage is a very thin wrapper around the ImageInspect API
 // call.
-func (c *Client) InspectImage(imageTag string) (imageCfg imagespec.DockerOCIImageConfig, err error) {
+func (c *Client) InspectImage(imageTag string) (imageCfg *imagespec.DockerOCIImageConfig, err error) {
 	inspectResp, err := c.mobyClient.ImageInspect(context.Background(), imageTag)
-	return *inspectResp.Config, err
+	if err != nil {
+		return nil, err
+	}
+	return inspectResp.Config, nil
 }
 
 // PullContainerImage pulls the OCI image from a remtoe registry so it

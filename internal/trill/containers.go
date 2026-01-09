@@ -516,7 +516,7 @@ func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
 func (c *Client) setContainerAndRemoteUser(p *writ.Parser, imageTag string) (err error) {
 	if p.Config.ContainerUser == nil {
 		slog.Info("containerUser not set; attempting to figure it out using image metadata")
-		var imageCfg imagespec.DockerOCIImageConfig
+		var imageCfg *imagespec.DockerOCIImageConfig
 		if imageCfg, err = c.InspectImage(imageTag); err == nil {
 			imageUser := imageCfg.User
 			if len(imageUser) == 0 {
