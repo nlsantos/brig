@@ -172,6 +172,9 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) (err error)
 	slog.Debug("pulling image tag from remote registry", "tag", tag)
 	fmt.Printf("Pulling %s from remote registry...\n", tag)
 	pullResp, err := c.mobyClient.ImagePull(context.Background(), tag, mobyclient.ImagePullOptions{
+	slog.Debug("pulling image tag from remote registry", "tag", imageTag)
+	fmt.Printf("Pulling %s from remote registry...\n", imageTag)
+	pullResp, err := c.mobyClient.ImagePull(context.Background(), imageTag, mobyclient.ImagePullOptions{
 		Platforms: []ocispec.Platform{{
 			Architecture: c.Platform.Architecture,
 			OS:           c.Platform.OS,
@@ -197,9 +200,9 @@ func (c *Client) PullContainerImage(tag string, suppressOutput bool) (err error)
 	} else {
 		stdoutFd := os.Stdout.Fd()
 		isTerm := term.IsTerminal(int(stdoutFd))
-		streamWriter := NewPrefixedStreamWriter(os.Stdout, "PULL", tag)
+		streamWriter := NewPrefixedStreamWriter(os.Stdout, "PULL", imageTag)
 		if err := jsonmessage.DisplayJSONMessagesStream(pullResp, streamWriter, stdoutFd, isTerm, nil); err != nil {
-			slog.Error("error encountered while pulling image", "tag", tag, "error", err)
+			slog.Error("error encountered while pulling image", "tag", imageTag, "error", err)
 			return err
 		}
 	}
