@@ -39,6 +39,16 @@
 ## below.
 #port-offset = 8000           # can also be p=<NUM>
 
+## If true, if a container references an image tag that already exists
+## locally, brig will skip the build step (even if the build recipes
+## have since changed).
+#skip-build = false           # can also be B=false
+
+## If true, if a container references an image tag that already exists
+## locally, brig will skip pulling it from its remote registry (even
+## if there is a newer version available).
+#skip-pull = false            # can also be P=false
+
 ## Specify socket address (named pipe on Windows) on which Podman or
 ## Docker is listening.
 ##

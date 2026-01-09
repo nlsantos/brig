@@ -97,6 +97,8 @@ type Command struct {
 		PlatformArch string        `getopt:"-a --platform-arch target architecture for the container; defaults to amd64"`
 		PlatformOS   string        `getopt:"-o --platform-os target operating system for the container; defaults to linux"`
 		PortOffset   uint16        `getopt:"-p --port-offset=UINT number to offset privileged ports by"`
+		SkipBuild    bool          `getopt:"-B --skip-build skip building images unless they don't exist"`
+		SkipPull     bool          `getopt:"-P --skip-pull skip pulling images unless they don't exist"`
 		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
 		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
 		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`
@@ -173,7 +175,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 		switch {
 		case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
 			imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-			if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.suppressOutput); err != nil {
+			if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
 				return err
 			}
@@ -188,13 +190,13 @@ func NewCommand(appName string, appVersion string) ExitCode {
 			// Replace non-valid characters for Composer project names
 			// with an underscore
 			projName := invalidProjectNamePattern.ReplaceAllString(imageName, "_")
-			if err = trillClient.DeployComposerProject(&parser, projName, ImageTagPrefix, cmd.suppressOutput); err != nil {
+			if err = trillClient.DeployComposerProject(&parser, projName, ImageTagPrefix, cmd.Options.SkipBuild, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build a Compose project", "error", err)
 			}
 
 		case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 			imageTag = *parser.Config.Image
-			if err = trillClient.PullContainerImage(imageTag, cmd.suppressOutput); err != nil {
+			if err = trillClient.PullContainerImage(imageTag, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
 				return err
 			}
