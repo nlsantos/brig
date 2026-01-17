@@ -91,18 +91,19 @@ var VersionText = heredoc.Doc(`
 type Command struct {
 	Arguments []string
 	Options   struct {
-		Help         options.Help  `getopt:"-h --help display this help message"`
-		Config       options.Flags `getopt:"-c --config=PATH path to rc file"`
-		Debug        bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
-		PlatformArch string        `getopt:"-a --platform-arch target architecture for the container; defaults to amd64"`
-		PlatformOS   string        `getopt:"-o --platform-os target operating system for the container; defaults to linux"`
-		PortOffset   uint16        `getopt:"-p --port-offset=UINT number to offset privileged ports by"`
-		SkipBuild    bool          `getopt:"-B --skip-build skip building images unless they don't exist"`
-		SkipPull     bool          `getopt:"-P --skip-pull skip pulling images unless they don't exist"`
-		Socket       string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
-		ValidateOnly bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
-		Verbose      bool          `getopt:"-v --verbose enable diagnostic messages"`
-		Version      bool          `getopt:"--version display version informaiton then exit"`
+		Help                      options.Help  `getopt:"-h --help display this help message"`
+		Config                    options.Flags `getopt:"-c --config=PATH path to rc file"`
+		Debug                     bool          `getopt:"-d --debug enable debug messsages (implies -v)"`
+		IgnoreUpdateRemoteUserUID bool          `getopt:"--ignore-updateremoteuseruid always treat updateRemoteUserUID as set to false"`
+		PlatformArch              string        `getopt:"-a --platform-arch target architecture for the container; defaults to amd64"`
+		PlatformOS                string        `getopt:"-o --platform-os target operating system for the container; defaults to linux"`
+		PortOffset                uint16        `getopt:"-p --port-offset=UINT number to offset privileged ports by"`
+		SkipBuild                 bool          `getopt:"-B --skip-build skip building images unless they don't exist"`
+		SkipPull                  bool          `getopt:"-P --skip-pull skip pulling images unless they don't exist"`
+		Socket                    string        `getopt:"-s --socket=ADDR URI to the Podman/Docker socket"`
+		ValidateOnly              bool          `getopt:"-V --validate parse and validate  the config and exit immediately"`
+		Verbose                   bool          `getopt:"-v --verbose enable diagnostic messages"`
+		Version                   bool          `getopt:"--version display version information then exit"`
 	}
 
 	suppressOutput bool
@@ -132,6 +133,9 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	if cmd.Options.ValidateOnly {
 		slog.Info("devcontainer.json validated and parsed successfully", "path", targetDevcontainerJSON)
 		return ExitNormal
+	}
+	if cmd.Options.IgnoreUpdateRemoteUserUID {
+		*parser.Config.UpdateRemoteUserUID = false
 	}
 
 	socketAdddr := getSocketAddr(cmd.Options.Socket)

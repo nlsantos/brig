@@ -17,6 +17,13 @@
 ## it found failed validation or there was an error in parsing it
 #validate = false             # can also be V=false
 
+## If true, brig acts as though the value of the updateRemoteUserUID
+## field is set to default (the spec states it is true by
+## default). This gets around a bug in podman 4.9.3 (and possibly
+## other versions) as it ships with Ubuntu 24.04, which is the default
+## Ubuntu version set up when installing WSL.
+# ignore-updateremoteuseruid = false
+
 ## The CPU architecture to target when: building an image based on a
 ## Containerfile, asking for a manifest for a remote image, or when
 ## creating a container.
