@@ -20,7 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
+
+	"github.com/moby/moby/api/types/mount"
 )
 
 // UnmarshalJSON for the AppPort type
@@ -206,14 +209,15 @@ func (l *LifecycleCommand) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UnmarshalJSON for the MountElement type
+// UnmarshalJSON for the MobyMount type
 //
-// Because of this unmarshaller, a MountElement should never have its
-// String field be non-nil with a valid decontainer.json file
-func (m *MountElement) UnmarshalJSON(data []byte) error {
-	m.Mount = &Mount{}
+// If github.com/moby/moby/volume/mounts ever gets extracted into a
+// standalone module, this unmarshaller should switch to using its
+// Parser.
+func (m *MobyMount) UnmarshalJSON(data []byte) error {
+	type mobyMount MobyMount
 	if len(data) > 0 && data[0] == '{' {
-		return json.Unmarshal(data, m.Mount)
+		return json.Unmarshal(data, (*mobyMount)(m))
 	}
 
 	var mountString string
@@ -224,15 +228,29 @@ func (m *MountElement) UnmarshalJSON(data []byte) error {
 	for segment := range strings.SplitSeq(mountString, ",") {
 		splitSegment := strings.SplitN(segment, "=", 2)
 		splitSegment[0] = strings.ToLower(strings.TrimSpace(splitSegment[0]))
-		splitSegment[1] = strings.TrimSpace(splitSegment[1])
+		if len(splitSegment) > 1 {
+			splitSegment[1] = strings.TrimSpace(splitSegment[1])
+		} else {
+			splitSegment = append(splitSegment, "true")
+		}
 
 		switch splitSegment[0] {
 		case "source":
-			m.Mount.Source = splitSegment[1]
+			m.Source = splitSegment[1]
 		case "target":
-			m.Mount.Target = splitSegment[1]
+			m.Target = splitSegment[1]
 		case "type":
-			m.Mount.Type = MountType(strings.ToLower(splitSegment[1]))
+			m.Type = mount.Type(strings.ToLower(splitSegment[1]))
+		case "readonly":
+			fallthrough
+		case "ro":
+			readonlyVal, err := strconv.ParseBool(splitSegment[1])
+			if err != nil {
+				return err
+			}
+			m.ReadOnly = readonlyVal
+		case "consistency":
+			m.Consistency = mount.Consistency(splitSegment[1])
 		default:
 			slog.Debug("ignoring unknown mount directive", "key", splitSegment[0], "value", splitSegment[1])
 		}

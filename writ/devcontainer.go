@@ -16,9 +16,12 @@
 // Package writ houses a validating parser for devcontainer.json files
 package writ
 
-// Generated using https://app.quicktype.io/ against
+// Initially generated using https://app.quicktype.io/ against
 // https://raw.githubusercontent.com/devcontainers/spec/d424cc157e9a110f3bf67d311b46c7306d5a465d/schemas/devContainer.base.schema.json;
-// DO NOT EDIT MANUALLY
+
+import (
+	"github.com/moby/moby/api/types/mount"
+)
 
 // DevcontainerConfig represents the contents of a devcontainer.json
 // file.
@@ -93,7 +96,7 @@ type DevcontainerConfig struct {
 	InitializeCommand *LifecycleCommand `json:"initializeCommand,omitempty"`
 	// Mount points to set up when creating the container. See Docker's documentation for the
 	// --mount option for the supported syntax.
-	Mounts []MountElement `json:"mounts,omitempty"`
+	Mounts []*MobyMount `json:"mounts,omitempty"`
 	// A name for the dev container which can be displayed to the user.
 	Name *string `json:"name,omitempty"`
 	// A command to run when creating the container. This command is run after
@@ -227,31 +230,6 @@ type GPUClass struct {
 	Memory *string `json:"memory,omitempty"`
 }
 
-// MountElement represents individual entries in the mount field
-type MountElement struct {
-	Mount  *Mount
-	String *string
-}
-
-// Mount represents an entry in the mount field structured as an object.
-type Mount struct {
-	// Mount source.
-	Source string `json:"source,omitempty"`
-	// Mount target.
-	Target string `json:"target"`
-	// Mount type.
-	Type MountType `json:"type"`
-}
-
-// MountType specifies the type of mount a mount entry should be.
-type MountType string
-
-// Supported values for MountTYpe
-const (
-	Bind   MountType = "bind"
-	Volume MountType = "volume"
-)
-
 // PortAttributes represent configuration that should be applied to a
 // port binding specified in forwardPorts.
 type PortAttributes struct {
@@ -381,4 +359,10 @@ type CommandBase struct {
 type LifecycleCommand struct {
 	CommandBase
 	ParallelCommands *map[string]CommandBase
+}
+
+// MobyMount is a thin wrapper around the Moby Mount struct to allow
+// writing an unmarshaller.
+type MobyMount struct {
+	mount.Mount
 }
