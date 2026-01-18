@@ -182,6 +182,57 @@ func TestParseLifecycle(t *testing.T) {
 	assert.EqualValues(t, "test", (*p.Config.PostAttachCommand.ParallelCommands)["cmd2"].StringArray[0])
 }
 
+// TestParseMountStringList parses a devcontainer.json that declares
+// mounts as a list of strings
+func TestParseMountStringList(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "mounts-string-list.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing")
+	}
+
+	assert.EqualValues(t, "bind", p.Config.Mounts[0].Type)
+	assert.EqualValues(t, "/vanilla-bind", p.Config.Mounts[0].Source)
+	assert.EqualValues(t, "/vanilla-bind", p.Config.Mounts[0].Target)
+	assert.False(t, p.Config.Mounts[0].ReadOnly)
+	assert.Empty(t, p.Config.Mounts[0].Consistency)
+
+	assert.EqualValues(t, "bind", p.Config.Mounts[1].Type)
+	assert.EqualValues(t, "/readwrite-bind", p.Config.Mounts[1].Source)
+	assert.EqualValues(t, "/readwrite-bind", p.Config.Mounts[1].Target)
+	assert.False(t, p.Config.Mounts[1].ReadOnly)
+	assert.Empty(t, p.Config.Mounts[1].Consistency)
+
+	assert.EqualValues(t, "bind", p.Config.Mounts[2].Type)
+	assert.EqualValues(t, "/readonly-bind-implicit", p.Config.Mounts[2].Source)
+	assert.EqualValues(t, "/readonly-bind-implicit", p.Config.Mounts[2].Target)
+	assert.True(t, p.Config.Mounts[2].ReadOnly)
+	assert.Empty(t, p.Config.Mounts[2].Consistency)
+
+	assert.EqualValues(t, "bind", p.Config.Mounts[3].Type)
+	assert.EqualValues(t, "/readonly-bind-explicit", p.Config.Mounts[3].Source)
+	assert.EqualValues(t, "/readonly-bind-explicit", p.Config.Mounts[3].Target)
+	assert.True(t, p.Config.Mounts[3].ReadOnly)
+	assert.Empty(t, p.Config.Mounts[3].Consistency)
+
+	assert.EqualValues(t, "bind", p.Config.Mounts[4].Type)
+	assert.EqualValues(t, "/tmp", p.Config.Mounts[4].Source)
+	assert.EqualValues(t, "/tmp", p.Config.Mounts[4].Target)
+	assert.False(t, p.Config.Mounts[4].ReadOnly)
+	assert.EqualValues(t, "cached", p.Config.Mounts[4].Consistency)
+
+	assert.EqualValues(t, "volume", p.Config.Mounts[5].Type)
+	assert.EqualValues(t, "named-vol", p.Config.Mounts[5].Source)
+	assert.EqualValues(t, "/named-vol", p.Config.Mounts[5].Target)
+	assert.False(t, p.Config.Mounts[5].ReadOnly)
+	assert.Empty(t, p.Config.Mounts[5].Consistency)
+}
+
 // TestParsePortsAttributes parses a devcontainer.json that declares
 // forwardPorts *AND* portsAttributes and validates that explicit port
 // attributes are able to override default values

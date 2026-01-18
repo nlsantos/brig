@@ -1,0 +1,11 @@
+{
+  "image": "golang",
+  "mounts": [
+    "type=bind,source=/vanilla-bind,target=/vanilla-bind",
+    "type=bind,source=/readwrite-bind,target=/readwrite-bind,readonly=false",
+    "type=bind,source=/readonly-bind-implicit,target=/readonly-bind-implicit,readonly",
+    "type=bind,source=/readonly-bind-explicit,target=/readonly-bind-explicit,readonly=true",
+    "type=bind,source=/tmp,target=/tmp,consistency=cached",
+    "type=volume,source=named-vol,target=/named-vol"
+   ]
+}
