@@ -312,8 +312,8 @@ func (p *Parser) normalizeValues() error {
 	if p.Config.Mounts != nil {
 		slog.Debug("expanding variables", "section", "mounts")
 		for _, mount := range p.Config.Mounts {
-			mount.Mount.Source = p.ExpandEnv(mount.Mount.Source)
-			mount.Mount.Target = p.ExpandEnv(mount.Mount.Target)
+			mount.Source = p.ExpandEnv(mount.Source)
+			mount.Target = p.ExpandEnv(mount.Target)
 		}
 	}
 

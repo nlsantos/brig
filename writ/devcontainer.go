@@ -363,6 +363,4 @@ type LifecycleCommand struct {
 
 // MobyMount is a thin wrapper around the Moby Mount struct to allow
 // writing an unmarshaller.
-type MobyMount struct {
-	mount.Mount
-}
+type MobyMount mount.Mount

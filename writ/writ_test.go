@@ -350,8 +350,8 @@ func TestParseVarExpansion(t *testing.T) {
 	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
 
 	for _, mount := range p.Config.Mounts {
-		assert.Equal(t, mount.Mount.Source, localEnvVars["BRIG_TEST_MOUNT_SOURCE"])
-		assert.Equal(t, mount.Mount.Target, localEnvVars["BRIG_TEST_MOUNT_TARGET"])
+		assert.Equal(t, mount.Source, localEnvVars["BRIG_TEST_MOUNT_SOURCE"])
+		assert.Equal(t, mount.Target, localEnvVars["BRIG_TEST_MOUNT_TARGET"])
 	}
 }
 
