@@ -42,6 +42,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
 	github.com/go-git/go-billy/v6 v6.0.0-20251126203821-7f9c95185ee0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -89,4 +90,7 @@ require (
 	honnef.co/go/tools v0.6.1 // indirect
 )
 
-tool honnef.co/go/tools/cmd/staticcheck
+tool (
+	github.com/fzipp/gocyclo/cmd/gocyclo
+	honnef.co/go/tools/cmd/staticcheck
+)
