@@ -157,6 +157,7 @@ func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, 
 				// would, so I'm just gonna leave this is.
 				hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
 			}
+			// TODO: Add logic for the non-root scenario
 		}
 
 		// Lifecycle: initialize
@@ -491,22 +492,8 @@ func (c *Client) bindForwardPorts(p *writ.Parser, containerCfg *container.Config
 //
 // Requires hostCfg to its respective struct.
 func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
-	if len(p.Config.Mounts) > 0 {
-		var mounts = []mount.Mount{}
-		for _, mountEntry := range p.Config.Mounts {
-			mountItem := mount.Mount{
-				Source: mountEntry.Mount.Source,
-				Target: mountEntry.Mount.Target,
-			}
-			switch mountEntry.Mount.Type {
-			case "bind":
-				mountItem.Type = mount.TypeBind
-			case "volume":
-				mountItem.Type = mount.TypeVolume
-			}
-			mounts = append(mounts, mountItem)
-		}
-		hostCfg.Mounts = mounts
+	for _, mountEntry := range p.Config.Mounts {
+		hostCfg.Mounts = append(hostCfg.Mounts, (mount.Mount)(*mountEntry))
 	}
 }
 
