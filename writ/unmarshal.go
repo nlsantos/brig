@@ -235,15 +235,13 @@ func (m *MobyMount) UnmarshalJSON(data []byte) error {
 		}
 
 		switch splitSegment[0] {
-		case "source":
+		case "src", "source":
 			m.Source = splitSegment[1]
-		case "target":
+		case "destination", "dst", "target":
 			m.Target = splitSegment[1]
 		case "type":
 			m.Type = mount.Type(strings.ToLower(splitSegment[1]))
-		case "readonly":
-			fallthrough
-		case "ro":
+		case "readonly", "ro":
 			readonlyVal, err := strconv.ParseBool(splitSegment[1])
 			if err != nil {
 				return err
