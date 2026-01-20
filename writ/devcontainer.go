@@ -17,7 +17,7 @@
 package writ
 
 // Initially generated using https://app.quicktype.io/ against
-// https://raw.githubusercontent.com/devcontainers/spec/d424cc157e9a110f3bf67d311b46c7306d5a465d/schemas/devContainer.base.schema.json;
+// https://raw.githubusercontent.com/devcontainers/spec/d424cc157e9a110f3bf67d311b46c7306d5a465d/schemas/devContainer.base.schema.json
 
 import (
 	"github.com/moby/moby/api/types/mount"
