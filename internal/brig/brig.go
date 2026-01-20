@@ -34,6 +34,7 @@ import (
 	"github.com/nlsantos/brig/writ"
 	"github.com/pborman/options"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/term"
 )
 
 // ExitCode is a list of numeric exit codes used by brig
@@ -454,6 +455,7 @@ func (cmd *Command) parseOptions(appName string, appVersion string) {
 			Level:     logLevel,
 		},
 		NewLineAfterLog:   false,
+		NoColor: !term.IsTerminal(int(os.Stderr.Fd())),
 		SortKeys:          true,
 		StringIndentation: true,
 	})))
