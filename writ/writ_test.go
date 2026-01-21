@@ -54,7 +54,7 @@ func TestParse(t *testing.T) {
 	assert.Empty(t, p.Config.SecurityOpt)
 
 	assert.Empty(t, p.Config.Mounts)
-	assert.Nil(t, p.Config.Features)
+	assert.Empty(t, p.Config.Features)
 	assert.Empty(t, p.Config.OverrideFeatureInstallOrder)
 	assert.Empty(t, p.Config.Customizations)
 }
@@ -139,6 +139,34 @@ func TestParseForwardPorts(t *testing.T) {
 		// This is defined in the devcontainer.json as a default value for ports
 		assert.Equal(t, true, *portAttribute.ElevateIfNeeded)
 	}
+}
+
+// TestParseFeatures parses a devcontainer.json that references a
+// devcontainer Feature.
+func TestParseFeatures(t *testing.T) {
+	// Silence slog output for the duration of the run
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	p := NewParser(filepath.Join("testdata", "parse", "features.json"))
+	if err := p.Validate(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
+	}
+	if err := p.Parse(); err != nil {
+		t.Fatal("devcontainer.json expected to be valid failed parsing:", err)
+	}
+
+	assert.NotEmpty(t, p.Config.Features)
+	for _, key := range []string{"features/shorthand", "features/with-options"} {
+		assert.Contains(t, p.Config.Features, key)
+	}
+
+	// According to the spec, string values in shorthand feature
+	// declarations should map to an option named "version":
+	// https://containers.dev/implementors/features/#:~:text=This%20string%20is%20mapped%20to%20an%20option%20called%20version%2E
+	assert.EqualValues(t, "1.0", *p.Config.Features["features/shorthand"]["version"].String)
+
+	assert.EqualValues(t, "hello", *p.Config.Features["features/with-options"]["string-opt"].String)
+	assert.True(t, *p.Config.Features["features/with-options"]["bool-opt"].Bool)
 }
 
 // TestParseLifecycle parses a devcontainer.json that declares

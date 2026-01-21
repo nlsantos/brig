@@ -1,0 +1,11 @@
+{
+  "name": "devcontainer using features",
+  "image": "mcr.microsoft.com/devcontainers/go:1.25",
+  "features": {
+    "features/shorthand": "1.0",
+    "features/with-options": {
+      "string-opt": "hello",
+      "bool-opt": true
+    },
+  },
+}
