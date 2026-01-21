@@ -149,6 +149,40 @@ func (d *DockerComposeFile) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (f *Feature) UnmarshalJSON(data []byte) error {
+	// Check if this is a shorthand feature declaration; according to
+	// the spec, this should map to an option named "version":
+	// https://containers.dev/implementors/features/#:~:text=This%20string%20is%20mapped%20to%20an%20option%20called%20version%2E
+	if data[0] == '"' {
+		if *f == nil {
+			*f = make(Feature)
+		}
+
+		versionOpt := FeatureOptions{}
+		if err := json.Unmarshal(data, &versionOpt); err != nil {
+			return err
+		}
+		(*f)["version"] = versionOpt
+		return nil
+	}
+
+	type longhandFeature Feature
+	return json.Unmarshal(data, (*longhandFeature)(f))
+}
+
+// UnmarshalJSON for the FeatureOptions type
+func (f *FeatureOptions) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &f.Bool); err == nil {
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &f.String); err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("feature option must be either a string or a boolean: %#v", data)
+}
+
 // UnmarshalJSON for the ForwardPort type
 func (f *ForwardPorts) UnmarshalJSON(data []byte) error {
 	// jscpd:ignore-start
