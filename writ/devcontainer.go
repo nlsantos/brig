@@ -81,7 +81,7 @@ type DevcontainerConfig struct {
 	// name to group its customizations.
 	Customizations map[string]interface{} `json:"customizations,omitempty"`
 	// Features to add to the dev container.
-	Features *Features `json:"features,omitempty"`
+	Features map[string]Feature `json:"features,omitempty"`
 	// Ports that are forwarded from the container to the local machine. Can be an integer port
 	// number, or a string of the format "host:port_number".
 	ForwardPorts ForwardPorts `json:"forwardPorts,omitempty"`
@@ -181,14 +181,15 @@ type BuildOptions struct {
 // later files can override values set in previous ones.
 type DockerComposeFile []string
 
-// Features represent additional functionality that's bolted onto a
+// Feature represents additional functionality that's bolted onto a
 // devcontainer.
-type Features struct {
-	Fish       interface{} `json:"fish,omitempty"`
-	Gradle     interface{} `json:"gradle,omitempty"`
-	Homebrew   interface{} `json:"homebrew,omitempty"`
-	Jupyterlab interface{} `json:"jupyterlab,omitempty"`
-	Maven      interface{} `json:"maven,omitempty"`
+type Feature map[string]FeatureOptions
+
+// FeatureOptions are possible options to be passed to a devcontainer
+// feature's install.sh entrypoint.
+type FeatureOptions struct {
+	String *string
+	Bool   *bool
 }
 
 // HostRequirements represent hardware requirements of the
