@@ -122,7 +122,10 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	targetDevcontainerJSON := findDevcontainerJSON(cmd.Arguments)
 	slog.Debug("instantiating a parser for devcontainer.json", "path", targetDevcontainerJSON)
 
-	parser := writ.NewDevcontainerParser(targetDevcontainerJSON)
+	parser, err := writ.NewDevcontainerParser(targetDevcontainerJSON)
+	if err != nil {
+		slog.Error("encountered an error trying to create a devcontainer.json parser", "error", err)
+	}
 	if err = parser.Validate(); err != nil {
 		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
 		return ExitNonValidDevcontainerJSON
@@ -172,19 +175,19 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		defer cancel()
-		return cmd.lifecycleHandler(egCtx, eg, trillClient, &parser)
+		return cmd.lifecycleHandler(egCtx, eg, trillClient, parser)
 	})
 	eg.Go(func() (err error) {
-		imageName := createImageTagBase(&parser)
+		imageName := createImageTagBase(parser)
 		var imageTag string
 		switch {
 		case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
 			imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-			if err = trillClient.BuildDevcontainerImage(&parser, imageTag, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
+			if err = trillClient.BuildDevcontainerImage(parser, imageTag, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
 				return err
 			}
-			if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+			if err = trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 				return err
 			}
@@ -195,7 +198,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 			// Replace non-valid characters for Composer project names
 			// with an underscore
 			projName := invalidProjectNamePattern.ReplaceAllString(imageName, "_")
-			if err = trillClient.DeployComposerProject(&parser, projName, ImageTagPrefix, cmd.Options.SkipBuild, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
+			if err = trillClient.DeployComposerProject(parser, projName, ImageTagPrefix, cmd.Options.SkipBuild, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build a Compose project", "error", err)
 			}
 
@@ -205,7 +208,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 				slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
 				return err
 			}
-			if err = trillClient.StartDevcontainerContainer(&parser, imageTag, imageName); err != nil {
+			if err = trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 			}
 
