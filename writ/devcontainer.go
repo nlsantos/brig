@@ -41,20 +41,15 @@ type DevcontainerConfig struct {
 	// port on the host. A string is passed to Docker unchanged and can be used to map ports
 	// differently, e.g. "8000:8010".
 	AppPort *AppPort `json:"appPort,omitempty"`
-	// Whether to overwrite the command specified in the image. The default is true.
-	//
-	// Whether to overwrite the command specified in the image. The default is false.
+	// Whether to overwrite the command specified in the
+	// image. Defaults to false if referencing a Composer project;
+	// otherwise, defaults to true.
 	OverrideCommand *bool `json:"overrideCommand,omitempty"`
 	// The arguments required when starting in the container.
 	RunArgs []string `json:"runArgs,omitempty"`
 	// Action to take when the user disconnects from the container in their editor. The default
-	// is to stop the container.
-	//
-	// Action to take when the user disconnects from the primary container in their editor. The
-	// default is to stop all of the compose containers.
+	// is to stop the container or Composer services.
 	ShutdownAction *ShutdownAction `json:"shutdownAction,omitempty"`
-	// The path of the workspace folder inside the container.
-	//
 	// The path of the workspace folder inside the container. This is typically the target path
 	// of a volume mount in the docker-compose.yml.
 	WorkspaceFolder *string `json:"workspaceFolder,omitempty"`
@@ -249,8 +244,7 @@ type PortAttributes struct {
 // Secrets represent recommended secrets for this dev
 // container. Recommendations are provided as environment variable
 // keys with optional metadata.
-type Secrets struct {
-}
+type Secrets struct{}
 
 // OnAutoForward defines the action that occurs when the port is
 // discovered for automatic forwarding
