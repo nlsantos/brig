@@ -104,7 +104,7 @@ type DevcontainerFeatureConfig struct {
 // Option value is represented with a boolean value.
 type FeatureOption struct {
 	// Default value if the user omits this option from their configuration.
-	Default *Default `json:"default"`
+	Default *FeatureOptions `json:"default"`
 	// A description of the option displayed to the user by a supporting tool.
 	Description *string `json:"description,omitempty"`
 	// The type of the option. Can be 'boolean' or 'string'.  Options of type 'string' should
@@ -121,11 +121,6 @@ type FeatureOption struct {
 type FeatureOptionType string
 
 const (
-	Boolean FeatureOptionType = "boolean"
-	String  FeatureOptionType = "string"
+	FeatureOptionTypeBoolean FeatureOptionType = "boolean"
+	FeatureOptionTypeString  FeatureOptionType = "string"
 )
-
-type Default struct {
-	Bool   *bool
-	String *string
-}
