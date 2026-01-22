@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestParse checks and illustrates the exepcted flow of parsing; it
-// also checks that the default values for fields are set correctly.
-func TestParse(t *testing.T) {
+// TestParseDevcontainer checks and illustrates the exepcted flow of
+// parsing; it also checks that the default values for fields are set
+// correctly.
+func TestParseDevcontainer(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -60,10 +61,10 @@ func TestParse(t *testing.T) {
 	assert.Empty(t, p.Config.Customizations)
 }
 
-// TestParseAppPortInt parses a devcontainer.json with an appPort that
-// consists of a single integer and checks that the unmarshalled
-// values match as expected
-func TestParseAppPortInt(t *testing.T) {
+// TestParseDevcontainerAppPortInt parses a devcontainer.json with an
+// appPort that consists of a single integer and checks that the
+// unmarshalled values match as expected
+func TestParseDevcontainerAppPortInt(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -80,10 +81,10 @@ func TestParseAppPortInt(t *testing.T) {
 	assert.EqualValues(t, &appPort, p.Config.AppPort)
 }
 
-// TestParseAppPortMulti parses a devcontainer.json with an appPort that
-// consists of integers and strings, and checks that the unmarshalled
-// values match as expected
-func TestParseAppPortMulti(t *testing.T) {
+// TestParseDevcontainerAppPortMulti parses a devcontainer.json with
+// an appPort that consists of integers and strings, and checks that
+// the unmarshalled values match as expected
+func TestParseDevcontainerAppPortMulti(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -100,10 +101,10 @@ func TestParseAppPortMulti(t *testing.T) {
 	assert.EqualValues(t, &appPort, p.Config.AppPort)
 }
 
-// TestParseAppPortString parses a devcontainer.json with an appPort that
-// consists of a single string and checks that the unmarshalled
-// values match as expected
-func TestParseAppPortString(t *testing.T) {
+// TestParseDevcontainerAppPortString parses a devcontainer.json with
+// an appPort that consists of a single string and checks that the
+// unmarshalled values match as expected
+func TestParseDevcontainerAppPortString(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -120,10 +121,10 @@ func TestParseAppPortString(t *testing.T) {
 	assert.EqualValues(t, &appPort, p.Config.AppPort)
 }
 
-// TestParseForwardPorts parses a devcontainer.json that declares
-// forwardPorts and validates that defaults port attributes are
-// generated and applied
-func TestParseForwardPorts(t *testing.T) {
+// TestParseDevcontainerForwardPorts parses a devcontainer.json that
+// declares forwardPorts and validates that defaults port attributes
+// are generated and applied
+func TestParseDevcontainerForwardPorts(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -146,9 +147,9 @@ func TestParseForwardPorts(t *testing.T) {
 	}
 }
 
-// TestParseFeatures parses a devcontainer.json that references a
-// devcontainer Feature.
-func TestParseFeatures(t *testing.T) {
+// TestParserDevcontainerFeatures parses a devcontainer.json that
+// references a devcontainer Feature.
+func TestParserDevcontainerFeatures(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -175,9 +176,9 @@ func TestParseFeatures(t *testing.T) {
 	assert.True(t, *p.Config.Features["features/with-options"]["bool-opt"].Bool)
 }
 
-// TestParseLifecycle parses a devcontainer.json that declares
-// lifecycle commands.
-func TestParseLifecycle(t *testing.T) {
+// TestParseDevcontainerLifecycle parses a devcontainer.json that
+// declares lifecycle commands.
+func TestParseDevcontainerLifecycle(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -217,9 +218,9 @@ func TestParseLifecycle(t *testing.T) {
 	assert.EqualValues(t, "test", (*p.Config.PostAttachCommand.ParallelCommands)["cmd2"].StringArray[0])
 }
 
-// TestParseMountStringList parses a devcontainer.json that declares
-// mounts as a list of strings
-func TestParseMountStringList(t *testing.T) {
+// TestParseDevcontainerMountStringList parses a devcontainer.json
+// that declares mounts as a list of strings
+func TestParseDevcontainerMountStringList(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -269,10 +270,10 @@ func TestParseMountStringList(t *testing.T) {
 	assert.Empty(t, p.Config.Mounts[5].Consistency)
 }
 
-// TestParsePortsAttributes parses a devcontainer.json that declares
-// forwardPorts *AND* portsAttributes and validates that explicit port
-// attributes are able to override default values
-func TestParsePortsAttributes(t *testing.T) {
+// TestParserDevcontainerPortsAttributes parses a devcontainer.json
+// that declares forwardPorts *AND* portsAttributes and validates that
+// explicit port attributes are able to override default values
+func TestParserDevcontainerPortsAttributes(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -322,8 +323,9 @@ func TestParsePortsAttributes(t *testing.T) {
 	assert.EqualValues(t, true, *portSdns.ElevateIfNeeded)
 }
 
-// TestParseVarExpansion exercises writ's variable expansion.
-func TestParseVarExpansion(t *testing.T) {
+// TestParseDevcontainerVarExpansion exercises writ's variable
+// expansion.
+func TestParseDevcontainerVarExpansion(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
@@ -393,9 +395,9 @@ func TestParseVarExpansion(t *testing.T) {
 	}
 }
 
-// TestValidate attempts validation of known valid and invalid samples
-// of devcontainer.json files.
-func TestValidate(t *testing.T) {
+// TestValidateDevcontainer attempts validation of known valid and
+// invalid samples of devcontainer.json files.
+func TestValidateDevcontainer(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
