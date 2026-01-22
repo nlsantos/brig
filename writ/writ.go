@@ -148,6 +148,35 @@ func (p *Parser) Validate() error {
 	return nil
 }
 
+// Convert the contents of the target JSON config, which could be
+// JSONC, into standard JSON suitable for validation and parsing.
+func (p *Parser) standardizeJSON() error {
+	slog.Debug("attempting to standardize JSON config contents", "path", p.Filepath)
+	file, err := os.Open(p.Filepath)
+	if err != nil {
+		slog.Error("failed to open JSON config", "error", err, "path", p.Filepath)
+		return err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			slog.Error("could not close JSON file while standardizing", "error", err)
+		}
+	}()
+
+	fileInput, err := io.ReadAll(file)
+	if err != nil {
+		slog.Error("failed to read contents of JSON config", "error", err, "path", p.Filepath)
+		return err
+	}
+
+	if p.standardizedJSON, err = hujson.Standardize(fileInput); err != nil {
+		slog.Error("failed to standardize JSON config contents", "error", err, "path", p.Filepath)
+		return err
+	}
+
+	return nil
+}
+
 // Parse the contents of the target devcontainer.json into a struct.
 //
 // Will refuse to parse unless the contents are determined to conform
@@ -400,34 +429,4 @@ func (p *DevcontainerParser) setDefaultValues() error {
 	}
 
 	return nil
-}
-
-// Convert the contents of the target devcontainer.json, which could
-// be JSONC, into standard JSON suitable for validation and parsing.
-func (p *DevcontainerParser) standardizeJSON() ([]byte, error) {
-	slog.Debug("attempting to standardize devcontainer.json contents", "path", p.Filepath)
-	file, err := os.Open(p.Filepath)
-	if err != nil {
-		slog.Error("failed to open devcontainer.json", "error", err, "path", p.Filepath)
-		return nil, err
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			slog.Error("could not close JSON file while standardizing", "error", err)
-		}
-	}()
-
-	fileInput, err := io.ReadAll(file)
-	if err != nil {
-		slog.Error("failed to read contents of devcontainer.json", "error", err, "path", p.Filepath)
-		return nil, err
-	}
-
-	stdJSON, err := hujson.Standardize(fileInput)
-	if err != nil {
-		slog.Error("failed to standardize devcontainer.json contents", "error", err, "path", p.Filepath)
-		return nil, err
-	}
-
-	return stdJSON, nil
 }
