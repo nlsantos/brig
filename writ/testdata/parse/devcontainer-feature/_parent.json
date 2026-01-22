@@ -1,0 +1,5 @@
+{
+  // simplest valid devcontainer.json: *MUST* be valid
+  // used as parent for feature parsers
+  "image": "golang"
+}

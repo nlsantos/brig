@@ -1,0 +1,38 @@
+{
+    "id": "feature",
+    "version": "1.0.0",
+    "name": "feature",
+    "documentationURL": "https://example.com",
+    "description": "feature description",
+    "options": {
+        "ppa": {
+            "type": "boolean",
+            "default": true,
+            "description": "bool option description"
+        },
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "system",
+                "os-provided"
+            ],
+            "default": "os-provided",
+            "description": "string option description"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "github.copilot.chat.codeGeneration.instructions": [
+                    {
+                        "text": "This dev container includes an up-to-date version of Git, built from source as needed, pre-installed and available on the `PATH`."
+                    }
+                ]
+            }
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}
