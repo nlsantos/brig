@@ -61,17 +61,26 @@ const devcontainerJSONSchemaPath string = "devContainer.base.schema.json"
 // to a known value instead.
 const DefWorkspacePath string = "/workspace"
 
+// A Parser contains information about a JSON configuration necessary
+// to validate it against its corresponding JSON Schema spec.
+type Parser struct {
+	Filepath      string // Path to the target JSON file
+	IsValidConfig bool   // Whether or not the contents of the JSON file conforms to its corresponding spec
+
+	defaultValues    map[string]any // Default values of various fields keyed by their name
+	jsonSchema       string         // Contents of the JSON schema to validate against
+	jsonSchemaPath   string         // Path used for the JSON schema when being added as a resource
+	standardizedJSON []byte         // The raw contents of the target devcontainer.json, converted to standard JSON
+}
+
 // A DevcontainerParser contains metadata about a target
 // devcontainer.json file, as well as the configuration for the
 // intended devcontainer itself.
 type DevcontainerParser struct {
-	Filepath       string             // Path to the target devcontainer.json
 	Config         DevcontainerConfig // The parsed contents of the target devcontainer.json
 	DevcontainerID *string            // The runtime-specific ID for the devcontainer; not available until after it's created
-	IsValidConfig  bool               // Whether or not the contents of the devcontainer.json conform to the spec; see p.Validate()
 
-	defaultValues    map[string]any // Default values of various fields keyed by their name
-	standardizedJSON []byte         // The raw contents of the target devcontainer.json, converted to standard JSON
+	Parser
 }
 
 // NewDevcontainerParser returns a Parser targeting a devcontainer.json via
@@ -83,9 +92,13 @@ func NewDevcontainerParser(configPath string) DevcontainerParser {
 		panic(err)
 	}
 	p := DevcontainerParser{
-		Filepath:      absConfigPath,
-		IsValidConfig: false,
-		defaultValues: make(map[string]any),
+		Parser: Parser{
+			Filepath:       absConfigPath,
+			IsValidConfig:  false,
+			defaultValues:  make(map[string]any),
+			jsonSchema:     devcontainerJSONSchema,
+			jsonSchemaPath: devcontainerJSONSchemaPath,
+		},
 	}
 	stdJSON, err := p.standardizeJSON()
 	if err != nil {
@@ -101,19 +114,19 @@ func NewDevcontainerParser(configPath string) DevcontainerParser {
 // A successful validation operation returns err == nil and sets
 // p.IsValidConfig accordingly. Until after this is run, the value of
 // p.IsValidConfig should not be considered definitive.
-func (p *DevcontainerParser) Validate() error {
+func (p *Parser) Validate() error {
 	slog.Debug("initializing JSON schema validator")
-	dcSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(devcontainerJSONSchema))
+	dcSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(p.jsonSchema))
 	if err != nil {
 		slog.Error("unable to unmarshal embedded JSON schema", "error", err)
 		return err
 	}
 	c := jsonschema.NewCompiler()
-	if err = c.AddResource(devcontainerJSONSchemaPath, dcSchema); err != nil {
+	if err = c.AddResource(p.jsonSchemaPath, dcSchema); err != nil {
 		slog.Error("unable to add embedded JSON schema as resource", "error", err)
 		return err
 	}
-	sch, err := c.Compile(devcontainerJSONSchemaPath)
+	sch, err := c.Compile(p.jsonSchemaPath)
 	if err != nil {
 		slog.Error(fmt.Sprintf("unable to compile JSON schema: %#v", err))
 		return err
