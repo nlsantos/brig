@@ -177,6 +177,7 @@ func (f *FeatureOptions) UnmarshalJSON(data []byte) error {
 	}
 
 	if err := json.Unmarshal(data, &f.String); err == nil {
+		f.Bool = nil
 		return nil
 	}
 
