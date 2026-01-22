@@ -61,9 +61,10 @@ const devcontainerJSONSchemaPath string = "devContainer.base.schema.json"
 // to a known value instead.
 const DefWorkspacePath string = "/workspace"
 
-// A Parser contains metadata about a target devcontainer.jkson file,
-// as well as the configuration for the intended devcontainer itself.
-type Parser struct {
+// A DevcontainerParser contains metadata about a target
+// devcontainer.json file, as well as the configuration for the
+// intended devcontainer itself.
+type DevcontainerParser struct {
 	Filepath       string             // Path to the target devcontainer.json
 	Config         DevcontainerConfig // The parsed contents of the target devcontainer.json
 	DevcontainerID *string            // The runtime-specific ID for the devcontainer; not available until after it's created
@@ -73,15 +74,15 @@ type Parser struct {
 	standardizedJSON []byte         // The raw contents of the target devcontainer.json, converted to standard JSON
 }
 
-// NewParser returns a Parser targeting a devcontainer.json via
+// NewDevcontainerParser returns a Parser targeting a devcontainer.json via
 // filepath. A few fields are initialized, and the returned Parser is
 // ready to perform additional operations.
-func NewParser(configPath string) Parser {
+func NewDevcontainerParser(configPath string) DevcontainerParser {
 	absConfigPath, err := filepath.Abs(configPath)
 	if err != nil {
 		panic(err)
 	}
-	p := Parser{
+	p := DevcontainerParser{
 		Filepath:      absConfigPath,
 		IsValidConfig: false,
 		defaultValues: make(map[string]any),
@@ -100,7 +101,7 @@ func NewParser(configPath string) Parser {
 // A successful validation operation returns err == nil and sets
 // p.IsValidConfig accordingly. Until after this is run, the value of
 // p.IsValidConfig should not be considered definitive.
-func (p *Parser) Validate() error {
+func (p *DevcontainerParser) Validate() error {
 	slog.Debug("initializing JSON schema validator")
 	dcSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(devcontainerJSONSchema))
 	if err != nil {
@@ -140,7 +141,7 @@ func (p *Parser) Validate() error {
 // to the official JSON Schema spec.
 //
 // TODO: Add support for other parts of the spec. (Ongoing)
-func (p *Parser) Parse() error {
+func (p *DevcontainerParser) Parse() error {
 	if !p.IsValidConfig {
 		return errors.New("devcontainer.json flagged invalid")
 	}
@@ -184,7 +185,7 @@ func (p *Parser) Parse() error {
 // these prefixes, transform them to a form that lets them be passed
 // to shell.Expand() while still keeping the other expansion
 // capabilities.
-func (p *Parser) ExpandEnv(v string) string {
+func (p *DevcontainerParser) ExpandEnv(v string) string {
 	// These two prefixes are easy since they're just local var
 	// lookups, so they can just be discarded
 	localEnvPrefixes := regexp.MustCompile(`(\$\{)(env|localEnv):`)
@@ -213,7 +214,7 @@ func (p *Parser) ExpandEnv(v string) string {
 // value. Otherwise, performs a lookup for an actual env var with the
 // given name, and returns its value if it exists. If either lookups
 // fail, returns an empty string.
-func (p *Parser) expandEnv(v string) string {
+func (p *DevcontainerParser) expandEnv(v string) string {
 	switch {
 	case v == "containerWorkspaceFolder":
 		return DefWorkspacePath
@@ -245,7 +246,7 @@ func (p *Parser) expandEnv(v string) string {
 // This may involve setting default values, converting relative paths
 // to absolute paths (or the reverse), turning raw values into
 // easier-to-use ones, etc.
-func (p *Parser) normalizeValues() error {
+func (p *DevcontainerParser) normalizeValues() error {
 	slog.Debug("performing value normalization")
 
 	if !filepath.IsAbs(*p.Config.Context) {
@@ -332,7 +333,7 @@ func (p *Parser) normalizeValues() error {
 // This function only deals with values that can be computed without
 // referencing other values that need to be computed (beyond, say,
 // simple comparisons); for those, refer to normalizeValues().
-func (p *Parser) setDefaultValues() error {
+func (p *DevcontainerParser) setDefaultValues() error {
 	slog.Debug("setting up default values")
 
 	defFalse := false
@@ -390,7 +391,7 @@ func (p *Parser) setDefaultValues() error {
 
 // Convert the contents of the target devcontainer.json, which could
 // be JSONC, into standard JSON suitable for validation and parsing.
-func (p *Parser) standardizeJSON() ([]byte, error) {
+func (p *DevcontainerParser) standardizeJSON() ([]byte, error) {
 	slog.Debug("attempting to standardize devcontainer.json contents", "path", p.Filepath)
 	file, err := os.Open(p.Filepath)
 	if err != nil {

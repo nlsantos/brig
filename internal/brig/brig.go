@@ -122,7 +122,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	targetDevcontainerJSON := findDevcontainerJSON(cmd.Arguments)
 	slog.Debug("instantiating a parser for devcontainer.json", "path", targetDevcontainerJSON)
 
-	parser := writ.NewParser(targetDevcontainerJSON)
+	parser := writ.NewDevcontainerParser(targetDevcontainerJSON)
 	if err = parser.Validate(); err != nil {
 		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
 		return ExitNonValidDevcontainerJSON
@@ -230,7 +230,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 // If the context directory is a git repository, this function will
 // build a name using various git-related information; otherwise, it
 // defaults to the basename of the contect directory.
-func createImageTagBase(p *writ.Parser) string {
+func createImageTagBase(p *writ.DevcontainerParser) string {
 	// Use the basename of the devcontainer.json's context as default
 	// value
 	ctxDir := *p.Config.Context
@@ -347,7 +347,7 @@ func findDevcontainerJSON(paths []string) string {
 
 // lifecycleHandler monitor's the trill client's lifecycle channel and
 // runs the appropriate hooks.
-func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c *trill.Client, p *writ.Parser) (err error) {
+func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c *trill.Client, p *writ.DevcontainerParser) (err error) {
 	defer func() {
 		close(c.DevcontainerLifecycleResp)
 	}()
@@ -455,7 +455,7 @@ func (cmd *Command) parseOptions(appName string, appVersion string) {
 			Level:     logLevel,
 		},
 		NewLineAfterLog:   false,
-		NoColor: !term.IsTerminal(int(os.Stderr.Fd())),
+		NoColor:           !term.IsTerminal(int(os.Stderr.Fd())),
 		SortKeys:          true,
 		StringIndentation: true,
 	})))
@@ -491,7 +491,7 @@ func (cmd *Command) privilegedPortElevator(port uint16) uint16 {
 
 // runLifecycleCommand determines which parameter of a given lifecycle
 // command is active and runs it.
-func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.Parser, tc *trill.Client) (err error) {
+func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.DevcontainerParser, tc *trill.Client) (err error) {
 	switch {
 	case lc.String != nil:
 		if tc == nil {
@@ -532,7 +532,7 @@ func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleC
 // parameter inside the designated devcontainer (i.e., the lone
 // container in non-Composer configurations, or the one named in the
 // service field otherwise).
-func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.Parser, tc *trill.Client, runInShell bool, args ...string) error {
+func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.DevcontainerParser, tc *trill.Client, runInShell bool, args ...string) error {
 	return tc.ExecInDevcontainer(ctx, p, runInShell, args...)
 }
 

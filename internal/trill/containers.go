@@ -50,7 +50,7 @@ var ErrLifecycleHandler = errors.New("lifecycle handler encountered an error")
 // ExecInDevcontainer runs a command inside the designated
 // devcontainer (i.e., the lone container in non-Composer
 // configurations, or the one named in the service field otherwise).
-func (c *Client) ExecInDevcontainer(ctx context.Context, p *writ.Parser, runInShell bool, args ...string) error {
+func (c *Client) ExecInDevcontainer(ctx context.Context, p *writ.DevcontainerParser, runInShell bool, args ...string) error {
 	return c.ExecInContainer(ctx, c.ContainerID, p, runInShell, args...)
 }
 
@@ -59,7 +59,7 @@ func (c *Client) ExecInDevcontainer(ctx context.Context, p *writ.Parser, runInSh
 //
 // If runInShell is true, args is ran via `/bin/sh -c`; otherwise,
 // args[0] is treated as the program name.
-func (c *Client) ExecInContainer(ctx context.Context, containerID string, p *writ.Parser, runInShell bool, args ...string) (err error) {
+func (c *Client) ExecInContainer(ctx context.Context, containerID string, p *writ.DevcontainerParser, runInShell bool, args ...string) (err error) {
 	if runInShell {
 		shellCmd := []string{"/bin/sh", "-c"}
 		args = append(shellCmd, args...)
@@ -120,7 +120,7 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, p *wri
 // Requires metadata parsed from a devcontainer.json config, the
 // tag/image name for the OCI image to use as base, and a name for the
 // created container.
-func (c *Client) StartDevcontainerContainer(p *writ.Parser, imageTag string, containerName string) error {
+func (c *Client) StartDevcontainerContainer(p *writ.DevcontainerParser, imageTag string, containerName string) error {
 	slog.Debug("attempting to start and attach to devcontainer", "tag", imageTag, "name", containerName)
 	containerCfg := c.buildContainerConfig(p, imageTag)
 	hostCfg := c.buildHostConfig(p)
@@ -135,7 +135,7 @@ func (c *Client) StartDevcontainerContainer(p *writ.Parser, imageTag string, con
 
 // StartContainer creates a container based on the passed in arguments
 // then starts it.
-func (c *Client) StartContainer(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string, isDevcontainer bool) error {
+func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string, isDevcontainer bool) error {
 	if isDevcontainer {
 		p.DevcontainerID = &c.ContainerID
 
@@ -345,7 +345,7 @@ func (c *Client) ResizeContainer(h uint, w uint) (err error) {
 
 // buildContainerConfig initializes and returns a Moby
 // container.Config struct for later use with containers.
-func (c *Client) buildContainerConfig(p *writ.Parser, tag string) *container.Config {
+func (c *Client) buildContainerConfig(p *writ.DevcontainerParser, tag string) *container.Config {
 	slog.Debug("building the container configuration")
 	containerEnvs := []string{}
 	for key, val := range p.Config.ContainerEnv {
@@ -370,7 +370,7 @@ func (c *Client) buildContainerConfig(p *writ.Parser, tag string) *container.Con
 
 // buildHostConfig initializes and returns a Moby container.HostConfig
 // struct for later use with containers.
-func (c *Client) buildHostConfig(p *writ.Parser) *container.HostConfig {
+func (c *Client) buildHostConfig(p *writ.DevcontainerParser) *container.HostConfig {
 	hostCfg := container.HostConfig{
 		AutoRemove: true,
 		Binds: []string{
@@ -393,7 +393,7 @@ func (c *Client) buildHostConfig(p *writ.Parser) *container.HostConfig {
 //
 // TODO: Enhance this as this is very simplistic and will break in a
 // multi-container (i.e., Compose) environment
-func (c *Client) bindAppPorts(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig) error {
+func (c *Client) bindAppPorts(p *writ.DevcontainerParser, containerCfg *container.Config, hostCfg *container.HostConfig) error {
 	if p.Config.AppPort != nil && len(*p.Config.AppPort) > 0 {
 		exposedPorts, portMap, err := nat.ParsePortSpecs(*p.Config.AppPort)
 		if err != nil {
@@ -452,7 +452,7 @@ func (c *Client) bindAppPorts(p *writ.Parser, containerCfg *container.Config, ho
 //
 // TODO: Add a brig option to specify that ports in forwardPort
 // should listen on 0.0.0.0 instead of 127.0.0.1
-func (c *Client) bindForwardPorts(p *writ.Parser, containerCfg *container.Config, hostCfg *container.HostConfig) error {
+func (c *Client) bindForwardPorts(p *writ.DevcontainerParser, containerCfg *container.Config, hostCfg *container.HostConfig) error {
 	if len(p.Config.ForwardPorts) < 1 {
 		return nil
 	}
@@ -491,7 +491,7 @@ func (c *Client) bindForwardPorts(p *writ.Parser, containerCfg *container.Config
 // bindMounts sets up bind and/or volume mounts.
 //
 // Requires hostCfg to its respective struct.
-func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
+func (c *Client) bindMounts(p *writ.DevcontainerParser, hostCfg *container.HostConfig) {
 	for _, mountEntry := range p.Config.Mounts {
 		hostCfg.Mounts = append(hostCfg.Mounts, (mount.Mount)(*mountEntry))
 	}
@@ -500,7 +500,7 @@ func (c *Client) bindMounts(p *writ.Parser, hostCfg *container.HostConfig) {
 // setContainerAndRemoteUser tries to determine what value the
 // containerUser and remoteUser fields should have based on a target
 // image, provided they're not already set.
-func (c *Client) setContainerAndRemoteUser(p *writ.Parser, imageTag string) (err error) {
+func (c *Client) setContainerAndRemoteUser(p *writ.DevcontainerParser, imageTag string) (err error) {
 	if p.Config.ContainerUser == nil {
 		slog.Info("containerUser not set; attempting to figure it out using image metadata")
 		var imageCfg *imagespec.DockerOCIImageConfig

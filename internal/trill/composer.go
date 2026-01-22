@@ -45,7 +45,7 @@ import (
 //
 // It is not dissimlar for running `docker compose up` inside your
 // codebase.
-func (c *Client) DeployComposerProject(p *writ.Parser, projName string, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
+func (c *Client) DeployComposerProject(p *writ.DevcontainerParser, projName string, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	projOptions, err := compose.NewProjectOptions(
 		[]string(*p.Config.DockerComposeFile),
 		compose.WithConsistency(true),
@@ -189,7 +189,7 @@ func (c *Client) buildServiceBuildOpts(buildCfg *composetypes.BuildConfig, suppr
 // buildServiceContainerConfig creates a container.Config based on a
 // composetypes.ServiceConfig; it is eventually used to provision the
 // container for the target service.
-func (c *Client) buildServiceContainerConfig(p *writ.Parser, serviceCfg *composetypes.ServiceConfig) *container.Config {
+func (c *Client) buildServiceContainerConfig(p *writ.DevcontainerParser, serviceCfg *composetypes.ServiceConfig) *container.Config {
 	// We mostly want the Env field and some defaults set...
 	containerCfg := c.buildContainerConfig(p, serviceCfg.Image)
 	// ... we overwrite where needed
@@ -363,7 +363,7 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 //
 // If it encounters an error, the Error field of its return value is
 // populated.
-func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
+func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
 	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
 	slog.Debug("converting service config to Moby equivalents", "name", containerName)
@@ -412,7 +412,7 @@ func (c *Client) createComposerService(p *writ.Parser, serviceCfg *composetypes.
 //
 // It returns the first error it encounters, and is liable to leave
 // the Composer project in an indeterminate state.
-func (c *Client) createComposerServices(p *writ.Parser, servicesDAG *dag.DAG, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
+func (c *Client) createComposerServices(p *writ.DevcontainerParser, servicesDAG *dag.DAG, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	roots := servicesDAG.GetRoots()
 	for len(roots) > 0 {
 		errChan := make(chan error, len(roots))

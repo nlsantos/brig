@@ -17,7 +17,7 @@ func TestParse(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "simple-devcontainer.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "simple-devcontainer.json"))
 	// Parsing an unvalidated file should fail
 	assert.False(t, p.IsValidConfig)
 	if err := p.Parse(); err == nil {
@@ -66,7 +66,7 @@ func TestParseAppPortInt(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "appport-single-int.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "appport-single-int.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation")
 	}
@@ -85,7 +85,7 @@ func TestParseAppPortMulti(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "appport-multi.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "appport-multi.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation")
 	}
@@ -104,7 +104,7 @@ func TestParseAppPortString(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "appport-single-string.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "appport-single-string.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation")
 	}
@@ -123,7 +123,7 @@ func TestParseForwardPorts(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "forward-ports.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "forward-ports.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
 	}
@@ -147,7 +147,7 @@ func TestParseFeatures(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "features.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "features.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
 	}
@@ -175,7 +175,7 @@ func TestParseLifecycle(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "lifecycle.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "lifecycle.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
 	}
@@ -216,7 +216,7 @@ func TestParseMountStringList(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "mounts-string-list.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "mounts-string-list.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
 	}
@@ -268,7 +268,7 @@ func TestParsePortsAttributes(t *testing.T) {
 	// Silence slog output for the duration of the run
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	p := NewParser(filepath.Join("testdata", "parse", "ports-attributes.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "ports-attributes.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation:", err)
 	}
@@ -330,7 +330,7 @@ func TestParseVarExpansion(t *testing.T) {
 		}
 	}
 
-	p := NewParser(filepath.Join("testdata", "parse", "variable-expansion.json"))
+	p := NewDevcontainerParser(filepath.Join("testdata", "parse", "variable-expansion.json"))
 	if err := p.Validate(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed validation")
 	}
@@ -398,7 +398,7 @@ func TestValidate(t *testing.T) {
 	} else {
 		t.Run("AgainstValidSamples", func(t *testing.T) {
 			for _, path := range pathsValidSamples {
-				p := NewParser(path)
+				p := NewDevcontainerParser(path)
 				if err = p.Validate(); err != nil {
 					t.Fatal(err)
 				}
@@ -415,7 +415,7 @@ func TestValidate(t *testing.T) {
 	} else {
 		t.Run("AgainstInvalidSamples", func(t *testing.T) {
 			for _, path := range pathsInvalidSamples {
-				p := NewParser(path)
+				p := NewDevcontainerParser(path)
 				if err = p.Validate(); err == nil {
 					t.Fatal("known-invalid sample passed validation: ", path)
 				}

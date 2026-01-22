@@ -148,7 +148,7 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 // devcontainer.json.
 //
 // This is a very thin wrapper over BuildContainerImage.
-func (c *Client) BuildDevcontainerImage(p *writ.Parser, imageTag string, skipIfAvailable bool, suppressOutput bool) error {
+func (c *Client) BuildDevcontainerImage(p *writ.DevcontainerParser, imageTag string, skipIfAvailable bool, suppressOutput bool) error {
 	return c.BuildContainerImage(*p.Config.Context, *p.Config.DockerFile, imageTag, nil, skipIfAvailable, suppressOutput)
 }
 
