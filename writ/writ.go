@@ -83,29 +83,35 @@ type DevcontainerParser struct {
 	Parser
 }
 
-// NewDevcontainerParser returns a Parser targeting a devcontainer.json via
-// filepath. A few fields are initialized, and the returned Parser is
-// ready to perform additional operations.
+func NewParser(configPath string) (p *Parser, err error) {
+	if configPath, err = filepath.Abs(configPath); err != nil {
+		return nil, err
+	}
+	p = &Parser{
+		Filepath:      configPath,
+		IsValidConfig: false,
+		defaultValues: make(map[string]any),
+	}
+	if err = p.standardizeJSON(); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// NewDevcontainerParser returns a DevcontainerParser targeting a
+// devcontainer.json via filepath. A few fields are initialized, and
+// the returned DevcontainerParser is ready to perform additional
+// operations.
 func NewDevcontainerParser(configPath string) DevcontainerParser {
-	absConfigPath, err := filepath.Abs(configPath)
+	p, err := NewParser(configPath)
 	if err != nil {
 		panic(err)
 	}
-	p := DevcontainerParser{
-		Parser: Parser{
-			Filepath:       absConfigPath,
-			IsValidConfig:  false,
-			defaultValues:  make(map[string]any),
-			jsonSchema:     devcontainerJSONSchema,
-			jsonSchemaPath: devcontainerJSONSchemaPath,
-		},
+	p.jsonSchema = devcontainerJSONSchema
+	p.jsonSchemaPath = devcontainerJSONSchemaPath
+	return DevcontainerParser{
+		Parser: *p,
 	}
-	stdJSON, err := p.standardizeJSON()
-	if err != nil {
-		panic(err)
-	}
-	p.standardizedJSON = stdJSON
-	return p
 }
 
 // Validate runs the contents of the target devcontainer.json against
