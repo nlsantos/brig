@@ -21,7 +21,7 @@ package writ
 
 // Development Container Features Metadata (devcontainer-feature.json). See
 // https://containers.dev/implementors/features/ for more information.
-type DevcontainerFeature struct {
+type DevcontainerFeatureConfig struct {
 	// Passes docker capabilities to include when creating the dev container.
 	CapAdd []string `json:"capAdd,omitempty"`
 	// Container environment variables.
