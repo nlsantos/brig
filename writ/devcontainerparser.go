@@ -41,6 +41,31 @@ var devcontainerJSONSchema string
 // the schema contents to be referenced by other resources later on.
 const devcontainerJSONSchemaPath string = "devContainer.base.schema.json"
 
+// DefWorkspacePath is the default path to which the context directory
+// will be mounted inside the container.
+//
+// This deviates a little bit from the exhibited behavior of Visual
+// Studio Code; under VSCode, this value changes depdending on factors
+// I'm not entirely clear on.
+//
+// It seems to change depending on whether your code utilizes VSCode's
+// [workspaces](https://code.visualstudio.com/docs/editing/workspaces/workspaces)
+// feature and possibly other things.
+//
+// As this is not an applicable concept to brig, I've chosen to pin it
+// to a known value instead.
+const DefWorkspacePath string = "/workspace"
+
+// A DevcontainerParser contains metadata about a target
+// devcontainer.json file, as well as the configuration for the
+// intended devcontainer itself.
+type DevcontainerParser struct {
+	Config         DevcontainerConfig // The parsed contents of the target devcontainer.json
+	DevcontainerID *string            // The runtime-specific ID for the devcontainer; not available until after it's created
+
+	Parser
+}
+
 // NewDevcontainerParser returns a DevcontainerParser targeting a
 // devcontainer.json via filepath. A few fields are initialized, and
 // the returned DevcontainerParser is ready to perform additional

@@ -29,21 +29,6 @@ import (
 	"github.com/tailscale/hujson"
 )
 
-// DefWorkspacePath is the default path to which the context directory
-// will be mounted inside the container.
-//
-// This deviates a little bit from the exhibited behavior of Visual
-// Studio Code; under VSCode, this value changes depdending on factors
-// I'm not entirely clear on.
-//
-// It seems to change depending on whether your code utilizes VSCode's
-// [workspaces](https://code.visualstudio.com/docs/editing/workspaces/workspaces)
-// feature and possibly other things.
-//
-// As this is not an applicable concept to brig, I've chosen to pin it
-// to a known value instead.
-const DefWorkspacePath string = "/workspace"
-
 // A Parser contains information about a JSON configuration necessary
 // to validate it against its corresponding JSON Schema spec.
 type Parser struct {
@@ -56,16 +41,8 @@ type Parser struct {
 	standardizedJSON []byte         // The raw contents of the target devcontainer.json, converted to standard JSON
 }
 
-// A DevcontainerParser contains metadata about a target
-// devcontainer.json file, as well as the configuration for the
-// intended devcontainer itself.
-type DevcontainerParser struct {
-	Config         DevcontainerConfig // The parsed contents of the target devcontainer.json
-	DevcontainerID *string            // The runtime-specific ID for the devcontainer; not available until after it's created
-
-	Parser
-}
-
+// NewParser returns a Parser that can be built on by providing a JSON
+// Schema so that validation can be performed.
 func NewParser(configPath string) (p *Parser, err error) {
 	if configPath, err = filepath.Abs(configPath); err != nil {
 		return nil, err
