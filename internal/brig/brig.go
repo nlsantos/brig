@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/go-git/go-git/v6"
@@ -348,85 +346,6 @@ func findDevcontainerJSON(paths []string) string {
 	return candidates[0]
 }
 
-// lifecycleHandler monitor's the trill client's lifecycle channel and
-// runs the appropriate hooks.
-func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c *trill.Client, p *writ.DevcontainerParser) (err error) {
-	defer func() {
-		close(c.DevcontainerLifecycleResp)
-	}()
-
-	for event := range c.DevcontainerLifecycleChan {
-		switch event {
-		case trill.LifecycleInitialize:
-			slog.Debug("lifecycle", "event", "init")
-			if p.Config.InitializeCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, p, nil); err != nil {
-					return err
-				}
-			}
-			if *p.Config.WaitFor == writ.WaitForInitializeCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
-			}
-
-		case trill.LifecycleOnCreate:
-			slog.Debug("lifecycle", "event", "onCreate")
-			if p.Config.OnCreateCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.OnCreateCommand, p, c); err != nil {
-					return err
-				}
-			}
-			if *p.Config.WaitFor == writ.WaitForOnCreateCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
-			}
-
-		case trill.LifecyclePostAttach:
-			slog.Debug("lifecycle", "event", "postAttach")
-			if p.Config.PostAttachCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostAttachCommand, p, c); err != nil {
-					return err
-				}
-			}
-
-		case trill.LifecyclePostCreate:
-			slog.Debug("lifecycle", "event", "postCreate")
-			if p.Config.PostCreateCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostCreateCommand, p, c); err != nil {
-					return err
-				}
-			}
-			if *p.Config.WaitFor == writ.WaitForPostCreateCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
-			}
-
-		case trill.LifecyclePostStart:
-			slog.Debug("lifecycle", "event", "postStart")
-			if p.Config.PostStartCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostStartCommand, p, c); err != nil {
-					return err
-				}
-			}
-			if *p.Config.WaitFor == writ.WaitForPostStartCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
-			}
-
-		case trill.LifecycleUpdate:
-			slog.Debug("lifecycle", "event", "update")
-			if p.Config.UpdateContentCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.UpdateContentCommand, p, c); err != nil {
-					return err
-				}
-			}
-			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
-			}
-		}
-		c.DevcontainerLifecycleResp <- err == nil
-	}
-
-	slog.Debug("exiting lifecycle handler")
-	return nil
-}
-
 // parseOptions parses the command-line options and parameters and
 // does a little housekeeping.
 func (cmd *Command) parseOptions(appName string, appVersion string) {
@@ -490,76 +409,6 @@ func (cmd *Command) parseOptions(appName string, appVersion string) {
 // privileged ports.
 func (cmd *Command) privilegedPortElevator(port uint16) uint16 {
 	return port + cmd.Options.PortOffset
-}
-
-// runLifecycleCommand determines which parameter of a given lifecycle
-// command is active and runs it.
-func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.DevcontainerParser, tc *trill.Client) (err error) {
-	switch {
-	case lc.String != nil:
-		if tc == nil {
-			err = cmd.runLifecycleCommandOnHost(ctx, true, *lc.String)
-		} else {
-			err = cmd.runLifecycleCommandInContainer(ctx, p, tc, true, *lc.String)
-		}
-
-	case len(lc.StringArray) > 0:
-		if tc == nil {
-			err = cmd.runLifecycleCommandOnHost(ctx, false, lc.StringArray...)
-		} else {
-			err = cmd.runLifecycleCommandInContainer(ctx, p, tc, false, lc.StringArray...)
-		}
-
-	case lc.ParallelCommands != nil:
-		var wg sync.WaitGroup
-		errChan := make(chan error, len(*lc.ParallelCommands))
-		for _, pcmd := range *lc.ParallelCommands {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				errChan <- cmd.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: pcmd}, p, tc)
-			}()
-		}
-		wg.Wait()
-		close(errChan)
-		for err = range errChan {
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return err
-}
-
-// runLifecycleCommandInContainer executes a lifecycle command
-// parameter inside the designated devcontainer (i.e., the lone
-// container in non-Composer configurations, or the one named in the
-// service field otherwise).
-func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.DevcontainerParser, tc *trill.Client, runInShell bool, args ...string) error {
-	return tc.ExecInDevcontainer(ctx, p, runInShell, args...)
-}
-
-// runLifecycleCommandOnHost executes a lifecycle command parameter
-// locally on the host.
-func (cmd *Command) runLifecycleCommandOnHost(ctx context.Context, runInShell bool, args ...string) error {
-	var execCmd *exec.Cmd
-
-	if runInShell {
-		shell := os.Getenv("SHELL")
-		if len(shell) == 0 {
-			shell = "/bin/sh"
-		}
-		slog.Info("running command via shell on host", "shell", shell, "args", args)
-		args = append([]string{"-c"}, args...)
-		execCmd = exec.CommandContext(ctx, shell, args...)
-	} else {
-		slog.Info("running command directly on host", "args", args)
-		execCmd = exec.CommandContext(ctx, args[0], args[1:]...)
-	}
-
-	out, err := execCmd.CombinedOutput()
-	slog.Info("command output", "cmd", execCmd.String(), "output", string(out), "error", err)
-	return err
 }
 
 // setFlagsFile goes through a list of supported paths for the flags
