@@ -33,11 +33,9 @@ func (c *Client) listenForTerminalResize() {
 	resizeCh := make(chan os.Signal, 1)
 	signal.Notify(resizeCh, syscall.SIGWINCH)
 
-	defer func() {
-		close(resizeCh)
-	}()
-
 	go func() {
+		defer close(resizeCh)
+
 		for range resizeCh {
 			fd := int(os.Stdin.Fd())
 			if !term.IsTerminal(fd) {
