@@ -53,7 +53,7 @@ func getSocketAddr(socketAddr string) string {
 		"${XDG_RUNTIME_DIR}/podman/podman.sock",
 		fmt.Sprintf("/run/user/%d/docker.sock", uid),
 		fmt.Sprintf("/run/user/%d/podman/podman.sock", uid), // This also covers Podman + macOS, apparently?
-		"/var/run/podman/podman.sock",                       // FreeBSD usese this
+		"/var/run/podman/podman.sock",                       // FreeBSD uses this
 		"/var/run/docker.sock",                              // Docker + GNU/Linux
 		"/private/var/run/docker.sock",                      // Docker + macOS
 	}
