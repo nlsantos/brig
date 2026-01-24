@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-git/go-git/v6"
 	"github.com/golang-cz/devslog"
 	"github.com/nlsantos/brig/internal/trill"
@@ -107,6 +108,7 @@ type Command struct {
 
 	appName        string
 	appVersion     string
+	featuresLookup map[string]*string // Mapping of feature IDs and paths where their contents are stored
 	suppressOutput bool
 }
 
@@ -175,6 +177,12 @@ func NewCommand(appName string, appVersion string) ExitCode {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	if err := cmd.PrepareFeaturesData(ctx, parser); err != nil {
+		slog.Error("encountered an error while trying to prepare features", "err", err)
+		return ExitNonValidDevcontainerJSON
+	}
+	spew.Dump(cmd.featuresLookup)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
