@@ -105,15 +105,21 @@ type Command struct {
 		Version                   bool          `getopt:"--version display version information then exit"`
 	}
 
+	appName        string
+	appVersion     string
 	suppressOutput bool
 }
 
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) ExitCode {
-	var cmd Command
 	var err error
+	cmd := Command{
+		appName:        appName,
+		appVersion:     appVersion,
+		featuresLookup: make(map[string]*string),
+	}
 
-	cmd.parseOptions(appName, appVersion)
+	cmd.parseOptions()
 	slog.Debug("command line options parsed", "opts", cmd.Options)
 	slog.Debug("command line arguments ", "args", cmd.Arguments)
 
@@ -348,16 +354,16 @@ func findDevcontainerJSON(paths []string) string {
 
 // parseOptions parses the command-line options and parameters and
 // does a little housekeeping.
-func (cmd *Command) parseOptions(appName string, appVersion string) {
+func (cmd *Command) parseOptions() {
 	options.SetDisplayWidth(80)
 	options.SetHelpColumn(40)
 	options.SetParameters("<path-to-devcontainer.json>")
 	options.Register(&cmd.Options)
-	cmd.setFlagsFile(appName)
+	cmd.setFlagsFile()
 	cmd.Arguments = options.Parse()
 
 	if cmd.Options.Version {
-		fmt.Printf(VersionText, appName, appVersion)
+		fmt.Printf(VersionText, cmd.appName, cmd.appVersion)
 		os.Exit(int(ExitNormal))
 	}
 
@@ -413,12 +419,11 @@ func (cmd *Command) privilegedPortElevator(port uint16) uint16 {
 
 // setFlagsFile goes through a list of supported paths for the flags
 // file and assigns the first valid hit for parsing
-func (cmd *Command) setFlagsFile(appName string) {
+func (cmd *Command) setFlagsFile() {
 	var defConfigPaths = []string{
-		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", appName)),
-		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", appName)),
+		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", cmd.appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", cmd.appName)),
+		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", cmd.appName)),
 	}
 	for _, defConfigPath := range defConfigPaths {
 		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
