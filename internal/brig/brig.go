@@ -424,6 +424,9 @@ func (cmd *Command) setFlagsFile() {
 		os.ExpandEnv(fmt.Sprintf("${XDG_CONFIG_HOME}/%src", cmd.appName)),
 		os.ExpandEnv(fmt.Sprintf("${HOME}/.config/%src", cmd.appName)),
 		os.ExpandEnv(fmt.Sprintf("${HOME}/.%src", cmd.appName)),
+		os.ExpandEnv(fmt.Sprintf("${APPDATA}/%src", cmd.appName)),
+		os.ExpandEnv(fmt.Sprintf("${LOCALAPPDATA}/%src", cmd.appName)),
+		os.ExpandEnv(fmt.Sprintf("${USERPROFILE}/.%src", cmd.appName)),
 	}
 	for _, defConfigPath := range defConfigPaths {
 		if _, err := os.Stat(defConfigPath); os.IsNotExist(err) {
