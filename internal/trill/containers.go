@@ -174,11 +174,8 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 	createResp, err := c.mobyClient.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
 		Config:     containerCfg,
 		HostConfig: hostCfg,
-		Platform: &ocispec.Platform{
-			Architecture: c.Platform.Architecture,
-			OS:           c.Platform.OS,
-		},
-		Name: containerName,
+		Name:       containerName,
+		Platform:   (*ocispec.Platform)(&c.Platform),
 	})
 	if err != nil {
 		slog.Error("encountered an error creating a container", "error", err)
