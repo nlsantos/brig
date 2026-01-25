@@ -156,12 +156,15 @@ func NewCommand(appName string, appVersion string) ExitCode {
 		return ExitNoSocketFound
 	}
 
-	trillClient := trill.NewClient(socketAdddr)
-	trillClient.Platform = trill.Platform{
-		Architecture: cmd.Options.PlatformArch,
-		OS:           cmd.Options.PlatformOS,
-	}
-	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
+	privilegedPortElevator := cmd.privilegedPortElevator
+	cmd.trillClient = trill.NewClient(
+		socketAdddr,
+		trill.Platform{
+			Architecture: cmd.Options.PlatformArch,
+			OS:           cmd.Options.PlatformOS,
+		},
+		(*trill.PrivilegedPortElevator)(&privilegedPortElevator),
+	)
 	defer func() {
 		if parser.Config.DockerComposeFile == nil {
 			if len(cmd.trillClient.ContainerID) > 0 {
