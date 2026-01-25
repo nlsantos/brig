@@ -87,7 +87,7 @@ func (cmd *Command) getCacheDirectoryBase(prefixes []string, fallbackPattern str
 
 	// This *shouldn't* ever happen (because we already check
 	// for its existence above), but... *shrug*
-	if _, err := os.Stat(fallbackCachePath); errors.Is(err, fs.ErrExist) {
+	if _, err := os.Stat(fallbackCachePath); err == nil {
 		return fallbackCachePath, nil
 	}
 
