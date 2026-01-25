@@ -77,10 +77,12 @@ type Platform ocispec.Platform
 //
 // If it encounters an error creating the underlying connection, it
 // panics.
-func NewClient(socketAddr string) *Client {
+func NewClient(socketAddr string, platform Platform, privilegedPortElevator *PrivilegedPortElevator) *Client {
 	c := &Client{
 		DevcontainerLifecycleChan: make(chan LifecycleEvents),
 		DevcontainerLifecycleResp: make(chan bool, 1),
+		Platform:                  platform,
+		PrivilegedPortElevator:    *privilegedPortElevator,
 		SocketAddr:                socketAddr,
 	}
 
