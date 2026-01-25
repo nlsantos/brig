@@ -110,6 +110,7 @@ type Command struct {
 	appVersion     string
 	featuresLookup map[string]*string // Mapping of feature IDs and paths where their contents are stored
 	suppressOutput bool
+	trillClient    *trill.Client
 }
 
 // NewCommand initializes the command's lifecycle
@@ -163,14 +164,14 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	trillClient.PrivilegedPortElevator = cmd.privilegedPortElevator
 	defer func() {
 		if parser.Config.DockerComposeFile == nil {
-			if len(trillClient.ContainerID) > 0 {
-				trillClient.StopDevcontainer()
+			if len(cmd.trillClient.ContainerID) > 0 {
+				cmd.trillClient.StopDevcontainer()
 			}
-		} else if err = trillClient.TeardownComposerProject(); err != nil {
+		} else if err = cmd.trillClient.TeardownComposerProject(); err != nil {
 			slog.Error("encountered an error while trying to tear down the Compose project", "error", err)
 		}
 
-		if err = trillClient.Close(); err != nil {
+		if err = cmd.trillClient.Close(); err != nil {
 			slog.Error("received an error while closing the trill client", "error", err)
 		}
 	}()
@@ -187,7 +188,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		defer cancel()
-		return cmd.lifecycleHandler(egCtx, eg, trillClient, parser)
+		return cmd.lifecycleHandler(egCtx, eg, parser)
 	})
 	eg.Go(func() (err error) {
 		imageName := createImageTagBase(parser)
@@ -195,11 +196,11 @@ func NewCommand(appName string, appVersion string) ExitCode {
 		switch {
 		case parser.Config.DockerFile != nil && len(*parser.Config.DockerFile) > 0:
 			imageTag = fmt.Sprintf("%s%s", ImageTagPrefix, imageName)
-			if err = trillClient.BuildDevcontainerImage(parser, imageTag, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
+			if err = cmd.trillClient.BuildDevcontainerImage(parser, imageTag, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
 				return err
 			}
-			if err = trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
+			if err = cmd.trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 				return err
 			}
@@ -210,17 +211,17 @@ func NewCommand(appName string, appVersion string) ExitCode {
 			// Replace non-valid characters for Composer project names
 			// with an underscore
 			projName := invalidProjectNamePattern.ReplaceAllString(imageName, "_")
-			if err = trillClient.DeployComposerProject(parser, projName, ImageTagPrefix, cmd.Options.SkipBuild, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
+			if err = cmd.trillClient.DeployComposerProject(parser, projName, ImageTagPrefix, cmd.Options.SkipBuild, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to build a Compose project", "error", err)
 			}
 
 		case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 			imageTag = *parser.Config.Image
-			if err = trillClient.PullContainerImage(imageTag, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
+			if err = cmd.trillClient.PullContainerImage(imageTag, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
 				return err
 			}
-			if err = trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
+			if err = cmd.trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 			}
 

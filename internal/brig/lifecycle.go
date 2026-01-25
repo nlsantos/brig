@@ -30,37 +30,37 @@ import (
 
 // lifecycleHandler monitors the trill client's lifecycle channel and
 // runs the appropriate hooks.
-func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c *trill.Client, p *writ.DevcontainerParser) (err error) {
-	defer close(c.DevcontainerLifecycleResp)
+func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p *writ.DevcontainerParser) (err error) {
+	defer close(cmd.trillClient.DevcontainerLifecycleResp)
 
-	for event := range c.DevcontainerLifecycleChan {
+	for event := range cmd.trillClient.DevcontainerLifecycleChan {
 		switch event {
 		case trill.LifecycleInitialize:
 			slog.Debug("lifecycle", "event", "init")
 			if p.Config.InitializeCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, p, nil); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.InitializeCommand, p, true); err != nil {
 					return err
 				}
 			}
 			if *p.Config.WaitFor == writ.WaitForInitializeCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
+				eg.Go(cmd.trillClient.AttachHostTerminalToDevcontainer)
 			}
 
 		case trill.LifecycleOnCreate:
 			slog.Debug("lifecycle", "event", "onCreate")
 			if p.Config.OnCreateCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.OnCreateCommand, p, c); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.OnCreateCommand, p, false); err != nil {
 					return err
 				}
 			}
 			if *p.Config.WaitFor == writ.WaitForOnCreateCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
+				eg.Go(cmd.trillClient.AttachHostTerminalToDevcontainer)
 			}
 
 		case trill.LifecyclePostAttach:
 			slog.Debug("lifecycle", "event", "postAttach")
 			if p.Config.PostAttachCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostAttachCommand, p, c); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostAttachCommand, p, false); err != nil {
 					return err
 				}
 			}
@@ -68,37 +68,37 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c 
 		case trill.LifecyclePostCreate:
 			slog.Debug("lifecycle", "event", "postCreate")
 			if p.Config.PostCreateCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostCreateCommand, p, c); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostCreateCommand, p, false); err != nil {
 					return err
 				}
 			}
 			if *p.Config.WaitFor == writ.WaitForPostCreateCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
+				eg.Go(cmd.trillClient.AttachHostTerminalToDevcontainer)
 			}
 
 		case trill.LifecyclePostStart:
 			slog.Debug("lifecycle", "event", "postStart")
 			if p.Config.PostStartCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.PostStartCommand, p, c); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.PostStartCommand, p, false); err != nil {
 					return err
 				}
 			}
 			if *p.Config.WaitFor == writ.WaitForPostStartCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
+				eg.Go(cmd.trillClient.AttachHostTerminalToDevcontainer)
 			}
 
 		case trill.LifecycleUpdate:
 			slog.Debug("lifecycle", "event", "update")
 			if p.Config.UpdateContentCommand != nil {
-				if err = cmd.runLifecycleCommand(ctx, p.Config.UpdateContentCommand, p, c); err != nil {
+				if err = cmd.runLifecycleCommand(ctx, p.Config.UpdateContentCommand, p, false); err != nil {
 					return err
 				}
 			}
 			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
-				eg.Go(c.AttachHostTerminalToDevcontainer)
+				eg.Go(cmd.trillClient.AttachHostTerminalToDevcontainer)
 			}
 		}
-		c.DevcontainerLifecycleResp <- err == nil
+		cmd.trillClient.DevcontainerLifecycleResp <- err == nil
 	}
 
 	slog.Debug("exiting lifecycle handler")
@@ -107,20 +107,20 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, c 
 
 // runLifecycleCommand determines which parameter of a given lifecycle
 // command is active and runs it.
-func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.DevcontainerParser, tc *trill.Client) (err error) {
+func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleCommand, p *writ.DevcontainerParser, runOnHost bool) (err error) {
 	switch {
 	case lc.String != nil:
-		if tc == nil {
+		if runOnHost {
 			err = cmd.runLifecycleCommandOnHost(ctx, true, *lc.String)
 		} else {
-			err = cmd.runLifecycleCommandInContainer(ctx, p, tc, true, *lc.String)
+			err = cmd.runLifecycleCommandInContainer(ctx, p, true, *lc.String)
 		}
 
 	case len(lc.StringArray) > 0:
-		if tc == nil {
+		if runOnHost {
 			err = cmd.runLifecycleCommandOnHost(ctx, false, lc.StringArray...)
 		} else {
-			err = cmd.runLifecycleCommandInContainer(ctx, p, tc, false, lc.StringArray...)
+			err = cmd.runLifecycleCommandInContainer(ctx, p, false, lc.StringArray...)
 		}
 
 	case lc.ParallelCommands != nil:
@@ -130,7 +130,7 @@ func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleC
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				errChan <- cmd.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: pcmd}, p, tc)
+				errChan <- cmd.runLifecycleCommand(ctx, &writ.LifecycleCommand{CommandBase: pcmd}, p, runOnHost)
 			}()
 		}
 		wg.Wait()
@@ -148,8 +148,8 @@ func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleC
 // parameter inside the designated devcontainer (i.e., the lone
 // container in non-Composer configurations, or the one named in the
 // service field otherwise).
-func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.DevcontainerParser, tc *trill.Client, runInShell bool, args ...string) error {
-	return tc.ExecInDevcontainer(ctx, p, runInShell, args...)
+func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.DevcontainerParser, runInShell bool, args ...string) error {
+	return cmd.trillClient.ExecInDevcontainer(ctx, p, runInShell, args...)
 }
 
 // runLifecycleCommandOnHost executes a lifecycle command parameter
