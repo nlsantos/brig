@@ -23,6 +23,7 @@ import (
 	composetypes "github.com/compose-spec/compose-go/types"
 	"github.com/heimdalr/dag"
 	mobyclient "github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // LifecycleEvents is a list of event codes that are fired at several
@@ -69,10 +70,7 @@ type Client struct {
 
 // Platform contains data on the target state of any created
 // containers
-type Platform struct {
-	Architecture string
-	OS           string
-}
+type Platform ocispec.Platform
 
 // NewClient returns a Client that's set to communicate with
 // Podman/Docker via socketAddr.
