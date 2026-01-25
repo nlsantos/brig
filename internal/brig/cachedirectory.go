@@ -66,7 +66,7 @@ func (cmd *Command) getCacheDirectoryBase(prefixes []string, fallbackPattern str
 		if _, err := os.Stat(cacheDir); errors.Is(err, fs.ErrNotExist) {
 			slog.Debug("prefix exists, but not the app-specific subdirectory; attempting to create", "path", cacheDir)
 			// Prefix exists but not the app-specific subdirectory
-			if err := os.Mkdir(cacheDir, fs.ModeDir); err != nil {
+			if err := os.Mkdir(cacheDir, fs.ModeDir|0755); err != nil {
 				slog.Error("encountered an error while attempting to create app cache directory", "path", cacheDir, "error", err)
 				return "", err
 			}
@@ -91,7 +91,7 @@ func (cmd *Command) getCacheDirectoryBase(prefixes []string, fallbackPattern str
 		return fallbackCachePath, nil
 	}
 
-	if err := os.MkdirAll(fallbackCachePath, fs.ModeDir); err == nil {
+	if err := os.MkdirAll(fallbackCachePath, fs.ModeDir|0755); err == nil {
 		return fallbackCachePath, nil
 	}
 
