@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-git/go-git/v6"
 	"github.com/golang-cz/devslog"
 	"github.com/nlsantos/brig/internal/trill"
@@ -184,9 +183,11 @@ func NewCommand(appName string, appVersion string) ExitCode {
 
 	if err := cmd.PrepareFeaturesData(ctx, parser); err != nil {
 		slog.Error("encountered an error while trying to prepare features", "err", err)
-		return ExitNonValidDevcontainerJSON
+		return ExitError
 	}
-	spew.Dump(cmd.featuresLookup)
+	if len(cmd.featuresLookup) > 0 {
+		slog.Info("utilizing resolved features", "featuresLookup", cmd.featuresLookup)
+	}
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
