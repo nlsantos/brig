@@ -64,6 +64,13 @@ func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.Devcontaine
 			}
 		}
 
+		if err = cmd.PrepareFeaturesData(ctx, featureParser.Config.DependsOn, p.Filepath); err != nil {
+			return err
+		}
+		if err = cmd.ParseFeaturesConfig(ctx, p, featureParser.Config.DependsOn); err != nil {
+			return err
+		}
+
 		cmd.featureParsersLookup[featureID] = featureParser
 	}
 	return nil
