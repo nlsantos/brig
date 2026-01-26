@@ -252,11 +252,11 @@ type OnAutoForward string
 
 // Supported values for OnAutoForward
 const (
-	Ignore      OnAutoForward = "ignore"
-	Notify      OnAutoForward = "notify"
-	OpenBrowser OnAutoForward = "openBrowser"
-	OpenPreview OnAutoForward = "openPreview"
-	Silent      OnAutoForward = "silent"
+	OnAutoForwardIgnore      OnAutoForward = "ignore"
+	OnAutoForwardNotify      OnAutoForward = "notify"
+	OnAutoForwardOpenBrowser OnAutoForward = "openBrowser"
+	OnAutoForwardOpenPreview OnAutoForward = "openPreview"
+	OnAutoForwardSilent      OnAutoForward = "silent"
 )
 
 // Protocol specifies the protocol to use when forwarding a given port.
@@ -264,8 +264,13 @@ type Protocol string
 
 // Supported values for Protocol
 const (
-	HTTP  Protocol = "http"
-	HTTPS Protocol = "https"
+	ProtocolHTTP  Protocol = "http"
+	ProtocolHTTPS Protocol = "https"
+	// This isn't one of the explicitly defined values for this field,
+	// but the spec states that if this field is unset,
+	// imeplementations are expected to behave as though it's set to
+	// "tcp"
+	ProtocolTCP Protocol = "tcp"
 )
 
 // ShutdownAction represents the action to take when the user
@@ -278,9 +283,9 @@ type ShutdownAction string
 
 // Supported values for ShutdownAction
 const (
-	ShutdownActionNone ShutdownAction = "none"
-	StopCompose        ShutdownAction = "stopCompose"
-	StopContainer      ShutdownAction = "stopContainer"
+	ShutdownActionNone          ShutdownAction = "none"
+	ShutdownActionStopCompose   ShutdownAction = "stopCompose"
+	ShutdownActionStopContainer ShutdownAction = "stopContainer"
 )
 
 // UserEnvProbe specifies the environment probe to run.
@@ -290,10 +295,10 @@ type UserEnvProbe string
 
 // Suppported values for UserEnvProbe
 const (
-	InteractiveShell      UserEnvProbe = "interactiveShell"
-	LoginInteractiveShell UserEnvProbe = "loginInteractiveShell"
-	LoginShell            UserEnvProbe = "loginShell"
-	UserEnvProbeNone      UserEnvProbe = "none"
+	UserEnvProbeInteractiveShell      UserEnvProbe = "interactiveShell"
+	UserEnvProbeLoginInteractiveShell UserEnvProbe = "loginInteractiveShell"
+	UserEnvProbeLoginShell            UserEnvProbe = "loginShell"
+	UserEnvProbeUserEnvProbeNone      UserEnvProbe = "none"
 )
 
 // WaitFor represents the user command to wait for before continuing

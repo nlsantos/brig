@@ -48,7 +48,7 @@ func TestParseDevcontainer(t *testing.T) {
 	assert.Nil(t, p.Config.ContainerUser)
 	assert.True(t, *p.Config.UpdateRemoteUserUID)
 
-	assert.EqualValues(t, StopContainer, *p.Config.ShutdownAction)
+	assert.EqualValues(t, ShutdownActionStopContainer, *p.Config.ShutdownAction)
 	assert.False(t, *p.Config.Init)
 	assert.False(t, *p.Config.Privileged)
 

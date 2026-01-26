@@ -283,12 +283,13 @@ func (p *DevcontainerParser) setDefaultValues() error {
 
 	defFalse := false
 	defTrue := true
-	defForwardNotify := Notify
+	defForwardNotify := OnAutoForwardNotify
 	// This isn't one of the explicitly defined values for this field,
 	// but the spec states that if this field is unset,
 	// imeplementations are expected to behave as though it's set to
 	// "tcp"
-	defProtocol := Protocol("tcp")
+	defProtocol := ProtocolTCP
+	defUserEnvProbe := UserEnvProbeLoginInteractiveShell
 	defWorkspacePath := DefWorkspacePath
 
 	// Use the current working directory as context for builds if
@@ -313,15 +314,16 @@ func (p *DevcontainerParser) setDefaultValues() error {
 	p.Config.PortsAttributes = map[string]PortAttributes{}
 	p.Config.Privileged = &defFalse
 	p.Config.UpdateRemoteUserUID = &defTrue
+	p.Config.UserEnvProbe = &defUserEnvProbe
 	p.Config.WorkspaceFolder = &defWorkspacePath
 
 	// Basically, this only gets set to "none" if done so explcitly.
 	if p.Config.ShutdownAction == nil {
 		var defShutdownAction ShutdownAction
 		if p.Config.DockerComposeFile == nil {
-			defShutdownAction = StopContainer
+			defShutdownAction = ShutdownActionStopContainer
 		} else {
-			defShutdownAction = StopCompose
+			defShutdownAction = ShutdownActionStopCompose
 		}
 		p.Config.ShutdownAction = &defShutdownAction
 	}
