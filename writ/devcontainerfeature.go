@@ -105,6 +105,9 @@ type DevcontainerFeatureConfig struct {
 type FeatureOption struct {
 	// Default value if the user omits this option from their configuration.
 	Default *FeatureOptions `json:"default"`
+	// Value as set by the parent devcontainer configuration, if any;
+	// references Default unless overridden via SetOption
+	Value *FeatureOptions
 	// A description of the option displayed to the user by a supporting tool.
 	Description *string `json:"description,omitempty"`
 	// The type of the option. Can be 'boolean' or 'string'.  Options of type 'string' should
