@@ -39,6 +39,37 @@ import (
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
 
+func (cmd *Command) ParseFeaturesConfig(p *writ.DevcontainerParser, pathMap map[string]string) (err error) {
+	slog.Info("utilizing resolved features", "featuresLookup", pathMap)
+	for featureID, featureMap := range p.Config.Features {
+		slog.Debug("initializing configuration for feature", "feature", featureID)
+		featurePath, ok := pathMap[featureID]
+		if !ok {
+			return fmt.Errorf("feature unavailable for parsing: %s", featurePath)
+		}
+
+		featureParser, err := writ.NewDevcontainerFeatureParser(filepath.Join(featurePath, "devcontainer-feature.json"), p)
+		if err != nil {
+			return err
+		}
+		if err = featureParser.Validate(); err != nil {
+			return nil
+		}
+		if err = featureParser.Parse(); err != nil {
+			return nil
+		}
+
+		for key, val := range featureMap {
+			if err = featureParser.SetOption(key, val); err != nil {
+				return nil
+			}
+		}
+
+		cmd.featuresLookup[featureID] = featureParser
+	}
+	return nil
+}
+
 // PrepareFeaturesData retrieves each Feature's component files
 // (downloading them from remote endpoints if necessary, then caching
 // them for future use) and makes the parsed config available as
