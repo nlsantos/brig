@@ -76,7 +76,7 @@ type DevcontainerConfig struct {
 	// name to group its customizations.
 	Customizations map[string]interface{} `json:"customizations,omitempty"`
 	// Features to add to the dev container.
-	Features map[string]Feature `json:"features,omitempty"`
+	Features FeatureMap `json:"features,omitempty"`
 	// Ports that are forwarded from the container to the local machine. Can be an integer port
 	// number, or a string of the format "host:port_number".
 	ForwardPorts ForwardPorts `json:"forwardPorts,omitempty"`
@@ -175,6 +175,8 @@ type BuildOptions struct {
 // configuration. The order of the array matters since the contents of
 // later files can override values set in previous ones.
 type DockerComposeFile []string
+
+type FeatureMap map[string]Feature
 
 // Feature represents additional functionality that's bolted onto a
 // devcontainer.
