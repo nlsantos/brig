@@ -105,20 +105,22 @@ type Command struct {
 		Version                   bool          `getopt:"--version display version information then exit"`
 	}
 
-	appName        string
-	appVersion     string
-	featuresLookup map[string]*writ.DevcontainerFeatureParser // Mapping of feature IDs and their parsed JSON configs
-	suppressOutput bool
-	trillClient    *trill.Client
+	appName              string
+	appVersion           string
+	featureParsersLookup map[string]*writ.DevcontainerFeatureParser // Mapping of feature IDs and their parsed JSON configs
+	featurePathLookup    map[string]string
+	suppressOutput       bool
+	trillClient          *trill.Client
 }
 
 // NewCommand initializes the command's lifecycle
 func NewCommand(appName string, appVersion string) ExitCode {
 	var err error
 	cmd := Command{
-		appName:        appName,
-		appVersion:     appVersion,
-		featuresLookup: make(map[string]*writ.DevcontainerFeatureParser),
+		appName:              appName,
+		appVersion:           appVersion,
+		featureParsersLookup: make(map[string]*writ.DevcontainerFeatureParser),
+		featurePathLookup:    make(map[string]string),
 	}
 
 	cmd.parseOptions()
@@ -181,15 +183,15 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	featuresPathLookup, err := cmd.PrepareFeaturesData(ctx, parser)
-	if err != nil {
+	if err := cmd.PrepareFeaturesData(ctx, parser.Config.Features, parser.Filepath); err != nil {
 		slog.Error("encountered an error while trying to prepare features", "err", err)
 		return ExitError
 	}
-	if err := cmd.ParseFeaturesConfig(parser, featuresPathLookup); err != nil {
+	if err := cmd.ParseFeaturesConfig(ctx, parser, parser.Config.Features); err != nil {
 		slog.Error("encountered an error while trying to parsing feature config(s)", "err", err)
 		return ExitError
 	}
+	slog.Info("utilizing resolved features", "featurePathLookup", cmd.featurePathLookup)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {

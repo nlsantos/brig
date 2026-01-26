@@ -39,11 +39,10 @@ import (
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
 
-func (cmd *Command) ParseFeaturesConfig(p *writ.DevcontainerParser, pathMap map[string]string) (err error) {
-	slog.Info("utilizing resolved features", "featuresLookup", pathMap)
-	for featureID, featureMap := range p.Config.Features {
+func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.DevcontainerParser, featureMap writ.FeatureMap) (err error) {
+	for featureID, featureMap := range featureMap {
 		slog.Debug("initializing configuration for feature", "feature", featureID)
-		featurePath, ok := pathMap[featureID]
+		featurePath, ok := cmd.featurePathLookup[featureID]
 		if !ok {
 			return fmt.Errorf("feature unavailable for parsing: %s", featurePath)
 		}
@@ -65,7 +64,7 @@ func (cmd *Command) ParseFeaturesConfig(p *writ.DevcontainerParser, pathMap map[
 			}
 		}
 
-		cmd.featuresLookup[featureID] = featureParser
+		cmd.featureParsersLookup[featureID] = featureParser
 	}
 	return nil
 }
@@ -74,41 +73,41 @@ func (cmd *Command) ParseFeaturesConfig(p *writ.DevcontainerParser, pathMap map[
 // (downloading them from remote endpoints if necessary, then caching
 // them for future use) and makes the parsed config available as
 // values in a lookup table.
-func (cmd *Command) PrepareFeaturesData(ctx context.Context, p *writ.DevcontainerParser) (pathMap map[string]string, err error) {
-	pathMap = make(map[string]string)
-	for featureID := range p.Config.Features {
+func (cmd *Command) PrepareFeaturesData(ctx context.Context, featureMap writ.FeatureMap, contextPath string) (err error) {
+	for featureID := range featureMap {
+		slog.Debug("attempting to pull feature metadata", "feature", featureID)
 		var featurePath string
 		switch {
 		case strings.HasPrefix(featureID, "/"):
 			// https://containers.dev/implementors/features-distribution/#addendum-locally-referenced
-			return nil, fmt.Errorf("locally-stored features may not be referenced by an absolute path: %s", featureID)
+			return fmt.Errorf("locally-stored features may not be referenced by an absolute path: %s", featureID)
 
 		// Features available on the local filesystem aren't
 		// redirected to the cache, unlike HTTPS-hosted tarballs and
 		// OCI artifacts, but are instead used as-is.
 		case strings.HasPrefix(featureID, "./"):
-			if featurePath, err = filepath.Abs(filepath.Join(filepath.Dir(p.Filepath), featureID)); err != nil {
-				return nil, err
+			if featurePath, err = filepath.Abs(filepath.Join(filepath.Dir(contextPath), featureID)); err != nil {
+				return err
 			}
 			slog.Debug("referencing a locally-stored feature", "path", featurePath)
 			if _, err = os.Stat(featurePath); errors.Is(err, fs.ErrNotExist) {
-				return nil, fmt.Errorf("referenced a locally-stored feature that doesn't exist: %s", featurePath)
+				return fmt.Errorf("referenced a locally-stored feature that doesn't exist: %s", featurePath)
 			}
 
 		case strings.HasPrefix(featureID, "https://"):
 			if featurePath, err = cmd.prepareFeatureDataURI(ctx, featureID); err != nil {
-				return nil, err
+				return err
 			}
 
 		default:
 			if featurePath, err = cmd.prepareFeatureDataArtifact(ctx, featureID); err != nil {
-				return nil, err
+				return err
 			}
 		}
 
-		pathMap[featureID] = featurePath
+		cmd.featurePathLookup[featureID] = featurePath
 	}
-	return pathMap, nil
+	return nil
 }
 
 func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) (path string, err error) {
