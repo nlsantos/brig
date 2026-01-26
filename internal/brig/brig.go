@@ -107,7 +107,7 @@ type Command struct {
 
 	appName        string
 	appVersion     string
-	featuresLookup map[string]*string // Mapping of feature IDs and paths where their contents are stored
+	featuresLookup map[string]*writ.DevcontainerFeatureParser // Mapping of feature IDs and their parsed JSON configs
 	suppressOutput bool
 	trillClient    *trill.Client
 }
@@ -118,7 +118,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	cmd := Command{
 		appName:        appName,
 		appVersion:     appVersion,
-		featuresLookup: make(map[string]*string),
+		featuresLookup: make(map[string]*writ.DevcontainerFeatureParser),
 	}
 
 	cmd.parseOptions()
@@ -181,12 +181,14 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := cmd.PrepareFeaturesData(ctx, parser); err != nil {
+	featuresPathLookup, err := cmd.PrepareFeaturesData(ctx, parser)
+	if err != nil {
 		slog.Error("encountered an error while trying to prepare features", "err", err)
 		return ExitError
 	}
-	if len(cmd.featuresLookup) > 0 {
-		slog.Info("utilizing resolved features", "featuresLookup", cmd.featuresLookup)
+	if err := cmd.ParseFeaturesConfig(parser, featuresPathLookup); err != nil {
+		slog.Error("encountered an error while trying to parsing feature config(s)", "err", err)
+		return ExitError
 	}
 
 	eg, egCtx := errgroup.WithContext(ctx)
