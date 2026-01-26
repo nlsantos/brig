@@ -31,7 +31,7 @@ type DevcontainerFeatureConfig struct {
 	Customizations map[string]interface{} `json:"customizations,omitempty"`
 	// An object of Feature dependencies that must be satisified before this Feature is
 	// installed. Elements follow the same semantics of the features object in devcontainer.json
-	DependsOn map[string]interface{} `json:"dependsOn,omitempty"`
+	DependsOn FeatureMap `json:"dependsOn,omitempty"`
 	// Indicates that the Feature is deprecated, and will not receive any further
 	// updates/support. This property is intended to be used by the supporting tools for
 	// highlighting Feature deprecation.
