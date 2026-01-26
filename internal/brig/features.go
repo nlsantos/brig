@@ -128,7 +128,7 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 		return "", err
 	}
 
-	slog.Debug("retrieved metadata for an OCI artifact", "digest", description.Digest)
+	slog.Debug("retrieved metadata for an OCI artifact", "digest", string(description.Digest))
 	// Check if this is already present in the cache; we use the
 	// digest reported by the server as an ID (i.e., the directory
 	// name)
