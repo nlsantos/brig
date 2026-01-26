@@ -79,6 +79,10 @@ func (cmd *Command) PrepareFeaturesData(ctx context.Context, p *writ.Devcontaine
 	for featureID := range p.Config.Features {
 		var featurePath string
 		switch {
+		case strings.HasPrefix(featureID, "/"):
+			// https://containers.dev/implementors/features-distribution/#addendum-locally-referenced
+			return nil, fmt.Errorf("locally-stored features may not be referenced by an absolute path: %s", featureID)
+
 		// Features available on the local filesystem aren't
 		// redirected to the cache, unlike HTTPS-hosted tarballs and
 		// OCI artifacts, but are instead used as-is.
