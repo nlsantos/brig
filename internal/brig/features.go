@@ -107,6 +107,10 @@ func (cmd *Command) PrepareFeaturesData(ctx context.Context, featureMap writ.Fea
 			}
 
 		default:
+			if err = cmd.LoadArtifactDigest(); err != nil {
+				return err
+			}
+
 			if featurePath, err = cmd.prepareFeatureDataArtifact(ctx, featureID); err != nil {
 				return err
 			}
@@ -125,6 +129,15 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 		return "", err
 	}
 
+	cacheKeyComponents := []string{cacheDir}
+	cacheKeyComponents = append(cacheKeyComponents, strings.Split(ref, ":")...)
+	// cacheKey is the subdirectory within the root cache directory
+	// where the contents of the OCI artifact are going to be stored
+	cacheKey := filepath.Join(cacheKeyComponents...)
+
+	_, err = os.Stat(cacheKey)
+	cachedCopyExists := err == nil
+
 	repo, err := remote.NewRepository(ref)
 	if err != nil {
 		return "", err
@@ -133,25 +146,32 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 	slog.Debug("attempting to resolve reference to an OCI artifact")
 	description, err := repo.Resolve(ctx, repo.Reference.Reference)
 	if err != nil {
+		if cachedCopyExists {
+			// If the OCI artifact is already cached, this *could* be
+			// a recoverable situation, so return the cached path
+			// instead of conking out.
+			//
+			// The only caveat is that we aren't able to validate that
+			// the digests match, so the cache might be stale
+			slog.Warn("resolving OCI reference returned an error but a cached (possibly stale) copy already exists", "error", err)
+			return cacheKey, nil
+		}
 		return "", err
 	}
 
 	slog.Debug("retrieved metadata for an OCI artifact", "digest", string(description.Digest))
-	// Check if this is already present in the cache; we use the
-	// digest reported by the server as an ID (i.e., the directory
-	// name)
-	splitDigest := strings.Split(string(description.Digest), ":")
-	digest := splitDigest[len(splitDigest)-1]
-	possibleCachedArtifactPath, err := filepath.Abs(filepath.Join(cacheDir, digest))
-	if err != nil {
-		return "", err
-	}
-	slog.Debug("checking if artifact exists in cache", "path", possibleCachedArtifactPath)
-	if _, err := os.Stat(possibleCachedArtifactPath); err == nil {
-		// Should there be additional checks to ensure that the cached
-		// copy is valid?
-		slog.Debug("returning path of cached artifact copy", "path", possibleCachedArtifactPath)
-		return possibleCachedArtifactPath, nil
+	digestTableEntry, ok := cmd.featureArtifactsDigests.Entries[ref]
+	if ok && cachedCopyExists {
+		if digestTableEntry.Digest == string(description.Digest) {
+			slog.Info("digest matches cached copy", "reference", ref, "digest", digestTableEntry.Digest)
+			return cacheKey, nil
+		}
+		slog.Info(
+			"cached copy exists but digests don't match",
+			"reference", ref,
+			"localDigest", digestTableEntry.Digest,
+			"remoteDigest", string(description.Digest),
+		)
 	}
 
 	if description.MediaType != FeatureArtifactMediaType {
@@ -173,9 +193,9 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 		if layer.MediaType != FeatureLayerMediaType {
 			continue
 		}
-		slog.Debug("found layer with the target media type; extracting to cache", "path", possibleCachedArtifactPath)
-		if _, err := os.Stat(possibleCachedArtifactPath); errors.Is(err, fs.ErrNotExist) {
-			if err = os.Mkdir(possibleCachedArtifactPath, fs.ModeDir|0755); err != nil {
+		slog.Debug("found layer with the target media type; extracting to cache", "path", cacheKey)
+		if !cachedCopyExists {
+			if err = os.MkdirAll(cacheKey, fs.ModeDir|0755); err != nil {
 				return "", err
 			}
 		}
@@ -184,11 +204,17 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 		if err != nil {
 			return "", err
 		}
-		if err = extract.Tar(ctx, bytes.NewBuffer(layerBytes), possibleCachedArtifactPath, nil); err != nil {
+		if err = extract.Tar(ctx, bytes.NewBuffer(layerBytes), cacheKey, nil); err != nil {
 			return "", err
 		}
 
-		return possibleCachedArtifactPath, nil
+		// Store the metadata for later marshalling
+		cmd.featureArtifactsDigests.Entries[ref] = &ArtifactDigestEntry{
+			FeatureID: ref,
+			Digest:    string(description.Digest),
+		}
+
+		return cacheKey, nil
 	}
 
 	return "", fmt.Errorf("referenced OCI artifact didn't contain a usable layer")
