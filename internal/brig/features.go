@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/codeclysm/extract"
+	"github.com/codeclysm/extract/v4"
 	"github.com/nlsantos/brig/writ"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
