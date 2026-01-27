@@ -59,7 +59,7 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 	// without having an intermediary tarball, I like having it around
 	// so it's easier to debug issues pertaining to the context
 	// tarball.
-	contextArchivePath, err := buildContextArchive(contextPath)
+	contextArchivePath, err := buildContextArchive(contextPath, []string{})
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func buildContextExcludesList(ctxDir string) []string {
 // While it's possible to build an OCI image without an intermediary
 // file, having it makes it easier to debug issues related to the
 // context tarball.
-func buildContextArchive(ctxDir string) (string, error) {
+func buildContextArchive(ctxDir string, includeFiles []string) (string, error) {
 	tempFile, err := os.CreateTemp("", fmt.Sprintf(".ctx-%s-*.tar.gz", filepath.Base(ctxDir)))
 	slog.Debug(fmt.Sprintf("building a context archive for the container as %s", tempFile.Name()))
 	if err != nil {
@@ -296,6 +296,7 @@ func buildContextArchive(ctxDir string) (string, error) {
 		},
 		Compression:      archive.Gzip,
 		ExcludePatterns:  buildContextExcludesList(ctxDir),
+		IncludeFiles:     includeFiles,
 		IncludeSourceDir: false,
 		NoLchown:         true,
 	}
