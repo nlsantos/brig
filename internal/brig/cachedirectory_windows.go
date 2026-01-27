@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build windows
 
 /*
    brig: The lightweight, native Go CLI for devcontainers
