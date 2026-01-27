@@ -48,7 +48,7 @@ archives:
     wrap_in_directory: false
     files:
       - LICENSE
-      - README.md
+      - docs/README.md
       - brigrc
 
 homebrew_casks:
