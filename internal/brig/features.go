@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,29 @@ import (
 
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
+
+func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage string, featuresPathLookup map[string]string) (containerfilePath string, remoteFeaturesPathLookup map[string]string, err error) {
+	containerfile, err := os.CreateTemp(ctxPath, fmt.Sprintf(".%s.Containerfile.*", cmd.appName))
+	if err != nil {
+		return "", nil, err
+	}
+	defer containerfile.Close()
+
+	remoteFeaturesPathLookup = make(map[string]string)
+	containerfile.WriteString(fmt.Sprintf("FROM %s\n", baseImage))
+	for featureID, featurePath := range featuresPathLookup {
+		remotePath := fmt.Sprintf("/devcontainer-features/%d", rand.Int())
+		relFeaturePath, err := filepath.Rel(ctxPath, featurePath)
+		if err != nil {
+			return "", nil, err
+		}
+		remoteFeaturesPathLookup[featureID] = remotePath
+		containerfile.WriteString(fmt.Sprintf("COPY \"%s/*\" \"%s/\"\n", relFeaturePath, remotePath))
+	}
+
+	containerfilePath = containerfile.Name()
+	return containerfilePath, remoteFeaturesPathLookup, err
+}
 
 func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBasePath string, featuresPathLookup map[string]string, err error) {
 	featuresPathLookup = make(map[string]string)
