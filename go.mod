@@ -11,6 +11,7 @@ require (
 	github.com/docker/go-connections v0.6.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v6 v6.0.0-20251212081956-e83cbb9651e8
+	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
 	github.com/golang-cz/devslog v0.0.15
 	github.com/heimdalr/dag v1.5.0
 	github.com/moby/docker-image-spec v1.3.1

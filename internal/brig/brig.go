@@ -105,12 +105,13 @@ type Command struct {
 		Version                   bool          `getopt:"--version display version information then exit"`
 	}
 
-	appName              string
-	appVersion           string
-	featureParsersLookup map[string]*writ.DevcontainerFeatureParser // Mapping of feature IDs and their parsed JSON configs
-	featurePathLookup    map[string]string
-	suppressOutput       bool
-	trillClient          *trill.Client
+	appName                 string
+	appVersion              string
+	featureArtifactsDigests *ArtifactDigest
+	featureParsersLookup    map[string]*writ.DevcontainerFeatureParser // Mapping of feature IDs and their parsed JSON configs
+	featurePathLookup       map[string]string
+	suppressOutput          bool
+	trillClient             *trill.Client
 }
 
 // NewCommand initializes the command's lifecycle
@@ -122,6 +123,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 		featureParsersLookup: make(map[string]*writ.DevcontainerFeatureParser),
 		featurePathLookup:    make(map[string]string),
 	}
+	defer cmd.SaveArtifactDigest()
 
 	cmd.parseOptions()
 	slog.Debug("command line options parsed", "opts", cmd.Options)
