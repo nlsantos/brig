@@ -122,6 +122,7 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 	cacheDir, err := cmd.getCacheDirectory()
 	if err != nil {
 		slog.Error("encountered an error while attempting to get cache directory", "error", err)
+		return "", err
 	}
 
 	repo, err := remote.NewRepository(ref)
