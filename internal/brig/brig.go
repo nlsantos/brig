@@ -227,10 +227,36 @@ func NewCommand(appName string, appVersion string) ExitCode {
 
 		case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 			imageTag = *parser.Config.Image
-			if err = cmd.trillClient.PullContainerImage(imageTag, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
+			if len(parser.Config.Features) > 0 {
+				contextPath := filepath.Dir(parser.Filepath)
+				// Use the .devcontainer directory as the context path
+				featuresBasePath, featuresPathLookup, err := cmd.CopyFeaturesToContextDirectory(contextPath)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = os.RemoveAll(featuresBasePath)
+				}()
+
+				containerfilePath, _, err := cmd.GenerateContainerfileWithFeatures(contextPath, imageTag, featuresPathLookup)
+				//containerfilePath, remoteFeaturesPathLookup, err := cmd.GenerateContainerfileWithFeatures(contextPath, imageTag, featuresPathLookup)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = os.Remove(containerfilePath)
+				}()
+
+				if err = cmd.trillClient.BuildContainerImage(contextPath, containerfilePath, imageName, nil, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
+					slog.Error("encountered an error while trying to build a feature-integrated image", "error", err)
+					return err
+				}
+				imageTag = imageName
+			} else if err = cmd.trillClient.PullContainerImage(imageTag, cmd.Options.SkipPull, cmd.suppressOutput); err != nil {
 				slog.Error("encountered an error while trying to pull an image based on devcontainer.json", "error", err)
 				return err
 			}
+
 			if err = cmd.trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 			}
