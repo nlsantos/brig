@@ -39,6 +39,33 @@ import (
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
 
+func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBasePath string, featuresPathLookup map[string]string, err error) {
+	featuresPathLookup = make(map[string]string)
+	// Create a single directory into which we copy features files
+	if featuresBasePath, err = os.MkdirTemp(ctxPath, ".features-*"); err != nil {
+		return "", nil, err
+	}
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(featuresBasePath)
+		}
+	}()
+	for featureID, cachedFeaturePath := range cmd.featurePathLookup {
+		// Create a tempdir to store feature files in; this gets
+		// around possibly dealing with invalid path names if they're
+		// based on feature references
+		featurePath, err := os.MkdirTemp(featuresBasePath, "feature-*")
+		if err != nil {
+			return "", nil, err
+		}
+		if err := os.CopyFS(featurePath, os.DirFS(cachedFeaturePath)); err != nil {
+			return "", nil, err
+		}
+		featuresPathLookup[featureID] = featurePath
+	}
+	return featuresBasePath, featuresPathLookup, nil
+}
+
 func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.DevcontainerParser, featureMap writ.FeatureMap) (err error) {
 	for featureID, featureMap := range featureMap {
 		slog.Debug("initializing configuration for feature", "feature", featureID)
