@@ -38,6 +38,7 @@ const (
 	LifecyclePostCreate
 	LifecyclePostStart
 	LifecyclePostAttach
+	LifecycleFeatureInstall
 )
 
 // PrivilegedPortElevator is a function that Client can use to convert

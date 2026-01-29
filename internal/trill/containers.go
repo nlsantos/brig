@@ -160,6 +160,12 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 			// TODO: Add logic for the non-root scenario
 		}
 
+		// Lifecycle: featureInstall
+		c.DevcontainerLifecycleChan <- LifecycleFeatureInstall
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
+
 		// Lifecycle: initialize
 		c.DevcontainerLifecycleChan <- LifecycleInitialize
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
