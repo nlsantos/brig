@@ -50,8 +50,8 @@ var ErrLifecycleHandler = errors.New("lifecycle handler encountered an error")
 // ExecInDevcontainer runs a command inside the designated
 // devcontainer (i.e., the lone container in non-Composer
 // configurations, or the one named in the service field otherwise).
-func (c *Client) ExecInDevcontainer(ctx context.Context, p *writ.DevcontainerParser, runInShell bool, args ...string) error {
-	return c.ExecInContainer(ctx, c.ContainerID, p, runInShell, args...)
+func (c *Client) ExecInDevcontainer(ctx context.Context, remoteUser string, env *writ.EnvVarMap, runInShell bool, args ...string) error {
+	return c.ExecInContainer(ctx, c.ContainerID, remoteUser, env, runInShell, args...)
 }
 
 // ExecInContainer runs a command inside a container designated by
@@ -59,7 +59,7 @@ func (c *Client) ExecInDevcontainer(ctx context.Context, p *writ.DevcontainerPar
 //
 // If runInShell is true, args is ran via `/bin/sh -c`; otherwise,
 // args[0] is treated as the program name.
-func (c *Client) ExecInContainer(ctx context.Context, containerID string, p *writ.DevcontainerParser, runInShell bool, args ...string) (err error) {
+func (c *Client) ExecInContainer(ctx context.Context, containerID string, remoteUser string, env *writ.EnvVarMap, runInShell bool, args ...string) (err error) {
 	if runInShell {
 		shellCmd := []string{"/bin/sh", "-c"}
 		args = append(shellCmd, args...)
@@ -68,15 +68,15 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, p *wri
 	slog.Info("running command in container", "container", containerID, "cmd", cmd)
 
 	execCreateOpts := mobyclient.ExecCreateOptions{
-		User:         *p.Config.RemoteUser,
+		User:         remoteUser,
 		TTY:          false,
 		AttachStderr: true,
 		AttachStdout: true,
 		Cmd:          args,
 	}
-	if len(p.Config.RemoteEnv) > 0 {
-		for name, val := range p.Config.RemoteEnv {
-			execCreateOpts.Env = append(execCreateOpts.Env, fmt.Sprintf("%s=%s", name, *val))
+	if len(*env) > 0 {
+		for name, val := range *env {
+			execCreateOpts.Env = append(execCreateOpts.Env, fmt.Sprintf("%s=%s", name, val))
 		}
 	}
 	slog.Debug("creating execution context", "container", containerID, "opts", execCreateOpts)
