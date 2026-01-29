@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/codeclysm/extract/v4"
+	"github.com/heimdalr/dag"
 	"github.com/nlsantos/brig/writ"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
@@ -39,6 +40,50 @@ import (
 
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
+
+func (cmd *Command) BuildFeaturesInstallationGraph() (installDAG *dag.DAG, err error) {
+	installDAG = dag.NewDAG()
+	for featureID, featureParser := range cmd.featureParsersLookup {
+		vertexID := featureID
+		if !strings.HasPrefix(featureID, "https://") {
+			// Remove version tags from feature IDs
+			featureIDAndTag := strings.Split(featureID, ":")
+			vertexID = featureIDAndTag[0]
+		}
+		if err := installDAG.AddVertexByID(vertexID, featureParser); err != nil {
+			return nil, err
+		}
+	}
+
+	// As of this writing, I'm yet to encounter an official feature
+	// that actually utilizes the dependsOn field.
+	for featureID, featureParser := range cmd.featureParsersLookup {
+		for dependencyID := range featureParser.Config.DependsOn {
+			edgeID := dependencyID
+			if !strings.HasPrefix(dependencyID, "https://") {
+				// Remove version tags from dependency IDs
+				dependencyIDAndTag := strings.Split(featureID, ":")
+				edgeID = dependencyIDAndTag[0]
+			}
+			installDAG.AddEdge(edgeID, featureID)
+		}
+	}
+
+	// installsAfter entries are *soft* dependencies; if they're not
+	// specifically declared in dependsOn, they may not even be
+	// installed.
+	//
+	// https://containers.dev/implementors/features/#installsAfter
+	for featureID, featureParser := range cmd.featureParsersLookup {
+		for _, dependency := range featureParser.Config.InstallsAfter {
+			if _, err = installDAG.GetVertex(dependency); err != nil {
+				continue
+			}
+			installDAG.AddEdge(dependency, featureID)
+		}
+	}
+	return installDAG, nil
+}
 
 func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBasePath string, err error) {
 	// Create a single directory into which we copy features files
