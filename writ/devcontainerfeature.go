@@ -71,7 +71,7 @@ type DevcontainerFeatureConfig struct {
 	OnCreateCommand *LifecycleCommand `json:"onCreateCommand,omitempty"`
 	// Possible user-configurable options for this Feature. The selected options will be passed
 	// as environment variables when installing the Feature into the container.
-	Options map[string]FeatureOption `json:"options,omitempty"`
+	Options map[string]*FeatureOption `json:"options,omitempty"`
 	// A command to run when attaching to the container. This command is run after
 	// "postStartCommand". If this is a single string, it will be run in a shell. If this is an
 	// array of strings, it will be run as a single command without shell. If this is an object,
