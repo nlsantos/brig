@@ -18,11 +18,14 @@ package brig
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"os/exec"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"golang.org/x/sync/errgroup"
@@ -31,10 +34,38 @@ import (
 // lifecycleHandler monitors the trill client's lifecycle channel and
 // runs the appropriate hooks.
 func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p *writ.DevcontainerParser) (err error) {
-	defer close(cmd.trillClient.DevcontainerLifecycleResp)
+	defer func() {
+		cmd.trillClient.DevcontainerLifecycleResp <- err == nil
+		close(cmd.trillClient.DevcontainerLifecycleResp)
+	}()
 
 	for event := range cmd.trillClient.DevcontainerLifecycleChan {
 		switch event {
+		case trill.LifecycleFeatureInstall:
+			slog.Error("lifecycle", "event", "feature:install")
+			installDAG, err := cmd.BuildFeaturesInstallationGraph()
+			if err != nil {
+				return err
+			}
+			roots := installDAG.GetRoots()
+			for len(roots) > 0 {
+				for raw := range maps.Values(roots) {
+					featureParser, ok := raw.(*writ.DevcontainerFeatureParser)
+					if !ok {
+						return fmt.Errorf("value for vertex is of unexpected type")
+					}
+					spew.Dump(featureParser.Config.Options)
+				}
+
+				for id := range roots {
+					if err := installDAG.DeleteVertex(id); err != nil {
+						return err
+					}
+				}
+
+				roots = installDAG.GetRoots()
+			}
+
 		case trill.LifecycleInitialize:
 			slog.Debug("lifecycle", "event", "init")
 			if p.Config.InitializeCommand != nil {
@@ -97,6 +128,9 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p 
 			if *p.Config.WaitFor == writ.WaitForUpdateContentCommand {
 				eg.Go(cmd.trillClient.AttachHostTerminalToDevcontainer)
 			}
+
+		default:
+			return fmt.Errorf("received unhandled lifecycle event: %v", event)
 		}
 		cmd.trillClient.DevcontainerLifecycleResp <- err == nil
 	}
