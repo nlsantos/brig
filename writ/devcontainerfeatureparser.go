@@ -73,7 +73,7 @@ func (p *DevcontainerFeatureParser) Parse() error {
 	return nil
 }
 
-func (p *DevcontainerFeatureParser) SetOption(name string, value *FeatureOptions) error {
+func (p *DevcontainerFeatureParser) SetOption(name string, value *FeatureValue) error {
 	if option, ok := p.Config.Options[name]; !ok {
 		return fmt.Errorf("attempted to set the value of unknown option: %s", name)
 	} else {

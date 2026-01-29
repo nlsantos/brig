@@ -71,7 +71,7 @@ type DevcontainerFeatureConfig struct {
 	OnCreateCommand *LifecycleCommand `json:"onCreateCommand,omitempty"`
 	// Possible user-configurable options for this Feature. The selected options will be passed
 	// as environment variables when installing the Feature into the container.
-	Options map[string]*FeatureOption `json:"options,omitempty"`
+	Options FeatureOptions `json:"options,omitempty"`
 	// A command to run when attaching to the container. This command is run after
 	// "postStartCommand". If this is a single string, it will be run in a shell. If this is an
 	// array of strings, it will be run as a single command without shell. If this is an object,
@@ -101,13 +101,17 @@ type DevcontainerFeatureConfig struct {
 	Version string `json:"version"`
 }
 
-// Option value is represented with a boolean value.
+// FeatureOptions is a key-value map of options supported by this
+// particular Feature.
+type FeatureOptions map[string]*FeatureOption
+
+// FeatureOption value is represented with a boolean value.
 type FeatureOption struct {
 	// Default value if the user omits this option from their configuration.
-	Default *FeatureOptions `json:"default"`
+	Default *FeatureValue `json:"default"`
 	// Value as set by the parent devcontainer configuration, if any;
 	// references Default unless overridden via SetOption
-	Value *FeatureOptions
+	Value *FeatureValue
 	// A description of the option displayed to the user by a supporting tool.
 	Description *string `json:"description,omitempty"`
 	// The type of the option. Can be 'boolean' or 'string'.  Options of type 'string' should
@@ -121,6 +125,8 @@ type FeatureOption struct {
 	Proposals []string `json:"proposals,omitempty"`
 }
 
+// FeatureOptionType is a union type denoting how a FeatureOption
+// should be processed.
 type FeatureOptionType string
 
 const (

@@ -180,15 +180,17 @@ type DockerComposeFile []string
 // variables.
 type EnvVarMap map[string]string
 
-type FeatureMap map[string]Feature
+// FeatureMap is a key-value map of devcontainer Features required by
+// the current configuration.
+type FeatureMap map[string]FeatureValues
 
-// Feature represents additional functionality that's bolted onto a
-// devcontainer.
-type Feature map[string]FeatureOptions
+// FeatureValues is a key-value map of values for options that are to
+// be passed to a Feature's installation script
+type FeatureValues map[string]FeatureValue
 
-// FeatureOptions are possible options to be passed to a devcontainer
+// FeatureValue are possible options to be passed to a devcontainer
 // feature's install.sh entrypoint.
-type FeatureOptions struct {
+type FeatureValue struct {
 	String *string
 	Bool   *bool
 }

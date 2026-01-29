@@ -149,16 +149,16 @@ func (d *DockerComposeFile) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (f *Feature) UnmarshalJSON(data []byte) error {
+func (f *FeatureValues) UnmarshalJSON(data []byte) error {
 	// Check if this is a shorthand feature declaration; according to
 	// the spec, this should map to an option named "version":
 	// https://containers.dev/implementors/features/#:~:text=This%20string%20is%20mapped%20to%20an%20option%20called%20version%2E
 	if data[0] == '"' {
 		if *f == nil {
-			*f = make(Feature)
+			*f = make(FeatureValues)
 		}
 
-		versionOpt := FeatureOptions{}
+		versionOpt := FeatureValue{}
 		if err := json.Unmarshal(data, &versionOpt); err != nil {
 			return err
 		}
@@ -166,12 +166,12 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	type longhandFeature Feature
+	type longhandFeature FeatureValues
 	return json.Unmarshal(data, (*longhandFeature)(f))
 }
 
 // UnmarshalJSON for the FeatureOptions type
-func (f *FeatureOptions) UnmarshalJSON(data []byte) error {
+func (f *FeatureValue) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &f.Bool); err == nil {
 		return nil
 	}
