@@ -25,7 +25,7 @@ type DevcontainerFeatureConfig struct {
 	// Passes docker capabilities to include when creating the dev container.
 	CapAdd []string `json:"capAdd,omitempty"`
 	// Container environment variables.
-	ContainerEnv map[string]string `json:"containerEnv,omitempty"`
+	ContainerEnv EnvVarMap `json:"containerEnv,omitempty"`
 	// Tool-specific configuration. Each tool should use a JSON object subproperty with a unique
 	// name to group its customizations.
 	Customizations map[string]interface{} `json:"customizations,omitempty"`

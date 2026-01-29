@@ -69,7 +69,7 @@ type DevcontainerConfig struct {
 	// Passes docker capabilities to include when creating the dev container.
 	CapAdd []string `json:"capAdd,omitempty"`
 	// Container environment variables.
-	ContainerEnv map[string]string `json:"containerEnv,omitempty"`
+	ContainerEnv EnvVarMap `json:"containerEnv,omitempty"`
 	// The user the container will be started with. The default is the user on the Docker image.
 	ContainerUser *string `json:"containerUser,omitempty"`
 	// Tool-specific configuration. Each tool should use a JSON object subproperty with a unique
@@ -124,7 +124,7 @@ type DevcontainerConfig struct {
 	Privileged *bool `json:"privileged,omitempty"`
 	// Remote environment variables to set for processes spawned in the container including
 	// lifecycle scripts and any remote editor/IDE server process.
-	RemoteEnv map[string]*string `json:"remoteEnv,omitempty"`
+	RemoteEnv EnvVarMap `json:"remoteEnv,omitempty"`
 	// The username to use for spawning processes in the container including lifecycle scripts
 	// and any remote editor/IDE server process. The default is the same user as the container.
 	RemoteUser *string `json:"remoteUser,omitempty"`
@@ -175,6 +175,8 @@ type BuildOptions struct {
 // configuration. The order of the array matters since the contents of
 // later files can override values set in previous ones.
 type DockerComposeFile []string
+
+type EnvVarMap map[string]string
 
 type FeatureMap map[string]Feature
 

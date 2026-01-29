@@ -350,7 +350,7 @@ func TestParseDevcontainerVarExpansion(t *testing.T) {
 		t.Fatal("devcontainer.json expected to be valid failed parsing")
 	}
 
-	containerEnv := map[string]string{
+	containerEnv := EnvVarMap{
 		// devcontainer spec vars
 		"CONTAINER_WORKSPACE_FOLDER":          DefWorkspacePath,
 		"CONTAINER_WORKSPACE_FOLDER_BASENAME": filepath.Base(DefWorkspacePath),
