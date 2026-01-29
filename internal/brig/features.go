@@ -41,6 +41,9 @@ import (
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
 
+// BuildFeaturesInstallationGraph iterates over a devcontainer's
+// Features and builds a directed acyclic graph that can be used to
+// guide Features' installation order.
 func (cmd *Command) BuildFeaturesInstallationGraph() (installDAG *dag.DAG, err error) {
 	installDAG = dag.NewDAG()
 	for featureID, featureParser := range cmd.featureParsersLookup {
@@ -85,6 +88,17 @@ func (cmd *Command) BuildFeaturesInstallationGraph() (installDAG *dag.DAG, err e
 	return installDAG, nil
 }
 
+// CopyFeaturesToContextDirectory iterates over a devcontainer's
+// Features and copies their files from the cache directory into the
+// devcontainer's context directory (an actual context directory if
+// specified; otherwise, the directory where the devcontainer.json
+// file resides in).
+//
+// This is necessary so the OCI build process can be rooted in a sane
+// path and limited to the codebase it's working with.
+//
+// Returns the base directory within the context directory where the
+// Features' files reside in as subdirectories.
 func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBasePath string, err error) {
 	// Create a single directory into which we copy features files
 	if featuresBasePath, err = os.MkdirTemp(ctxPath, ".features-*"); err != nil {
@@ -116,6 +130,10 @@ func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBase
 	return featuresBasePath, nil
 }
 
+// GenerateContainerfileWithFeatures programmatically creates a
+// custom, ephemeral Containerfile to be used in an OCI build process
+// that ensures Features' files are incorporated into the resulting
+// OCI image.
 func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage string) (containerfilePath string, err error) {
 	containerfile, err := os.CreateTemp(ctxPath, fmt.Sprintf(".%s.Containerfile.*", cmd.appName))
 	if err != nil {
@@ -146,6 +164,12 @@ func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage 
 	return containerfilePath, err
 }
 
+// ParseFeaturesConfig instantiates a writ.DevcontainerFeatureParser
+// for each Feature a devcontainer references and stores it for later
+// use by Command.
+//
+// It also instantiates a corresponding parser for every dependency
+// referenced in the dependsOn field of a Feature configuration.
 func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.DevcontainerParser, featureMap writ.FeatureMap) (err error) {
 	for featureID, featureMap := range featureMap {
 		slog.Debug("initializing configuration for feature", "feature", featureID)
@@ -233,6 +257,10 @@ func (cmd *Command) PrepareFeaturesData(ctx context.Context, featureMap writ.Fea
 	return nil
 }
 
+// prepareFeatureDataArtifact handles retrieving Features that are
+// distributed as OCI artifacts accessible via the reference `ref`.
+//
+// Currently only supports publicly-accessible OCI registries.
 func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) (path string, err error) {
 	slog.Debug("attempting to pull feature OCI artifact", "ref", ref)
 	cacheDir, err := cmd.getCacheDirectory()
@@ -332,6 +360,10 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 	return "", fmt.Errorf("referenced OCI artifact didn't contain a usable layer")
 }
 
+// prepareFeatureDataURI handles Features distributed as tarballs via
+// regular HTTPS endpoints.
+//
+// Currently a stub.
 func (cmd *Command) prepareFeatureDataURI(_ context.Context, uri string) (path string, err error) {
 	//slog.Debug("attempting to pull feature tarball", "uri", uri)
 	slog.Error("SUPPORT FOR HTTPS-HOSTED FEATURE TARBALLS IS CURRENTLY UNIMPLEMENTED")
