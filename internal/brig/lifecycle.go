@@ -183,7 +183,7 @@ func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleC
 // container in non-Composer configurations, or the one named in the
 // service field otherwise).
 func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.DevcontainerParser, runInShell bool, args ...string) error {
-	return cmd.trillClient.ExecInDevcontainer(ctx, p, runInShell, args...)
+	return cmd.trillClient.ExecInDevcontainer(ctx, *p.Config.RemoteUser, &p.Config.RemoteEnv, runInShell, args...)
 }
 
 // runLifecycleCommandOnHost executes a lifecycle command parameter
