@@ -109,6 +109,11 @@ func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.Devcontaine
 			return fmt.Errorf("feature unavailable for parsing: %s", featurePath)
 		}
 
+		if _, ok := cmd.featureParsersLookup[featureID]; ok {
+			slog.Debug("feature already parsed; skipping", "featureID", featureID)
+			return nil
+		}
+
 		featureParser, err := writ.NewDevcontainerFeatureParser(filepath.Join(featurePath, "devcontainer-feature.json"), p)
 		if err != nil {
 			return err
