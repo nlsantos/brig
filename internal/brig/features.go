@@ -126,8 +126,8 @@ func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.Devcontaine
 		}
 
 		for key, val := range featureMap {
-			if err = featureParser.SetOption(key, val); err != nil {
-				return nil
+			if err = featureParser.SetOption(key, &val); err != nil {
+				return err
 			}
 		}
 
