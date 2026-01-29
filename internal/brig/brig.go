@@ -230,7 +230,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 			if len(parser.Config.Features) > 0 {
 				contextPath := filepath.Dir(parser.Filepath)
 				// Use the .devcontainer directory as the context path
-				featuresBasePath, featuresPathLookup, err := cmd.CopyFeaturesToContextDirectory(contextPath)
+				featuresBasePath, err := cmd.CopyFeaturesToContextDirectory(contextPath)
 				if err != nil {
 					return err
 				}
@@ -238,8 +238,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 					_ = os.RemoveAll(featuresBasePath)
 				}()
 
-				containerfilePath, _, err := cmd.GenerateContainerfileWithFeatures(contextPath, imageTag, featuresPathLookup)
-				//containerfilePath, remoteFeaturesPathLookup, err := cmd.GenerateContainerfileWithFeatures(contextPath, imageTag, featuresPathLookup)
+				containerfilePath, err := cmd.GenerateContainerfileWithFeatures(contextPath, imageTag)
 				if err != nil {
 					return err
 				}

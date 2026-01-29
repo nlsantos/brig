@@ -40,54 +40,65 @@ import (
 const FeatureArtifactMediaType string = "application/vnd.oci.image.manifest.v1+json"
 const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar"
 
-func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBasePath string, featuresPathLookup map[string]string, err error) {
-	featuresPathLookup = make(map[string]string)
+func (cmd *Command) CopyFeaturesToContextDirectory(ctxPath string) (featuresBasePath string, err error) {
 	// Create a single directory into which we copy features files
 	if featuresBasePath, err = os.MkdirTemp(ctxPath, ".features-*"); err != nil {
-		return "", nil, err
+		return "", err
 	}
 	defer func() {
 		if err != nil {
 			_ = os.RemoveAll(featuresBasePath)
 		}
 	}()
+	// This will contain paths *within* the context directory that
+	// will eventually be incorporated into the OCI image
+	remoteFeaturePathLookup := make(map[string]string)
 	for featureID, cachedFeaturePath := range cmd.featurePathLookup {
 		// Create a tempdir to store feature files in; this gets
 		// around possibly dealing with invalid path names if they're
 		// based on feature references
 		featurePath, err := os.MkdirTemp(featuresBasePath, "feature-*")
 		if err != nil {
-			return "", nil, err
+			return "", err
 		}
 		if err := os.CopyFS(featurePath, os.DirFS(cachedFeaturePath)); err != nil {
-			return "", nil, err
+			return "", err
 		}
-		featuresPathLookup[featureID] = featurePath
+		remoteFeaturePathLookup[featureID] = featurePath
 	}
-	return featuresBasePath, featuresPathLookup, nil
+	// Overwrite previously set lookup table
+	cmd.featurePathLookup = remoteFeaturePathLookup
+	return featuresBasePath, nil
 }
 
-func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage string, featuresPathLookup map[string]string) (containerfilePath string, remoteFeaturesPathLookup map[string]string, err error) {
+func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage string) (containerfilePath string, err error) {
 	containerfile, err := os.CreateTemp(ctxPath, fmt.Sprintf(".%s.Containerfile.*", cmd.appName))
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 	defer containerfile.Close()
 
-	remoteFeaturesPathLookup = make(map[string]string)
+	remoteFeaturePathLookup := make(map[string]string)
 	containerfile.WriteString(fmt.Sprintf("FROM %s\n", baseImage))
-	for featureID, featurePath := range featuresPathLookup {
-		remotePath := fmt.Sprintf("/devcontainer-features/%d", rand.Int())
+	for featureID, featurePath := range cmd.featurePathLookup {
 		relFeaturePath, err := filepath.Rel(ctxPath, featurePath)
 		if err != nil {
-			return "", nil, err
+			return "", err
 		}
-		remoteFeaturesPathLookup[featureID] = remotePath
+
+		remotePath := fmt.Sprintf("/devcontainer-features/%d", rand.Int())
+		remoteConfigPath := fmt.Sprintf("%s/devcontainer-feature.json", remotePath)
+
+		remoteFeaturePathLookup[featureID] = remotePath
+		// Massage feature parser to the path within the OCI image for
+		// later execution
+		cmd.featureParsersLookup[featureID].Filepath = remoteConfigPath
 		containerfile.WriteString(fmt.Sprintf("COPY \"%s/*\" \"%s/\"\n", relFeaturePath, remotePath))
 	}
-
+	// Overwrite previously set lookup table
+	cmd.featurePathLookup = remoteFeaturePathLookup
 	containerfilePath = containerfile.Name()
-	return containerfilePath, remoteFeaturesPathLookup, err
+	return containerfilePath, err
 }
 
 func (cmd *Command) ParseFeaturesConfig(ctx context.Context, p *writ.DevcontainerParser, featureMap writ.FeatureMap) (err error) {
