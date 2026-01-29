@@ -23,9 +23,12 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/nlsantos/brig/internal/trill"
 	"github.com/nlsantos/brig/writ"
 	"golang.org/x/sync/errgroup"
@@ -42,7 +45,7 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p 
 	for event := range cmd.trillClient.DevcontainerLifecycleChan {
 		switch event {
 		case trill.LifecycleFeatureInstall:
-			slog.Error("lifecycle", "event", "feature:install")
+			slog.Debug("lifecycle", "event", "feature:install")
 			installDAG, err := cmd.BuildFeaturesInstallationGraph()
 			if err != nil {
 				return err
@@ -54,7 +57,29 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p 
 					if !ok {
 						return fmt.Errorf("value for vertex is of unexpected type")
 					}
-					spew.Dump(featureParser.Config.Options)
+
+					featureInstallScript := filepath.Join(filepath.Dir(featureParser.Filepath), "install.sh")
+					featureOptions := &writ.EnvVarMap{}
+					for optName, opt := range featureParser.Config.Options {
+						reAlphaNum := regexp.MustCompile(`[^\w_]`)
+						reDigits := regexp.MustCompile(`^[\d_]+`)
+
+						envKey := reAlphaNum.ReplaceAllLiteralString(optName, "_")
+						envKey = reDigits.ReplaceAllLiteralString(envKey, "_")
+						envKey = strings.ToUpper(envKey)
+
+						switch opt.Type {
+						case writ.FeatureOptionTypeBoolean:
+							(*featureOptions)[envKey] = strconv.FormatBool(*opt.Value.Bool)
+
+						case writ.FeatureOptionTypeString:
+							(*featureOptions)[envKey] = *opt.Value.String
+						}
+					}
+
+					if err = cmd.trillClient.ExecInDevcontainer(ctx, "root", featureOptions, false, featureInstallScript); err != nil {
+						return err
+					}
 				}
 
 				for id := range roots {
