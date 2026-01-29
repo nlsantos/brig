@@ -165,12 +165,6 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
 			return ErrLifecycleHandler
 		}
-
-		// Lifecycle: featureInstall
-		c.DevcontainerLifecycleChan <- LifecycleFeatureInstall
-		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
-		}
 	}
 
 	slog.Debug("using container config", "config", containerCfg)
@@ -227,6 +221,12 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 	slog.Debug("container started successfully", "id", createResp.ID)
 
 	if isDevcontainer {
+		// Lifecycle: featureInstall
+		c.DevcontainerLifecycleChan <- LifecycleFeatureInstall
+		if ok := <-c.DevcontainerLifecycleResp; !ok {
+			return ErrLifecycleHandler
+		}
+
 		// Lifecycle hooks
 		c.DevcontainerLifecycleChan <- LifecycleOnCreate
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
