@@ -226,7 +226,6 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
 			return ErrLifecycleHandler
 		}
-
 		// Lifecycle hooks
 		c.DevcontainerLifecycleChan <- LifecycleOnCreate
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
