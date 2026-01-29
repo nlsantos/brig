@@ -186,11 +186,11 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	defer cancel()
 
 	if err := cmd.PrepareFeaturesData(ctx, parser.Config.Features, parser.Filepath); err != nil {
-		slog.Error("encountered an error while trying to prepare features", "err", err)
+		slog.Error("encountered an error while trying to prepare features", "error", err)
 		return ExitError
 	}
 	if err := cmd.ParseFeaturesConfig(ctx, parser, parser.Config.Features); err != nil {
-		slog.Error("encountered an error while trying to parsing feature config(s)", "err", err)
+		slog.Error("encountered an error while trying to parsing feature config(s)", "error", err)
 		return ExitError
 	}
 	slog.Info("utilizing resolved features", "featurePathLookup", cmd.featurePathLookup)
