@@ -333,7 +333,8 @@ func (cmd *Command) prepareFeatureDataArtifact(ctx context.Context, ref string) 
 }
 
 func (cmd *Command) prepareFeatureDataURI(_ context.Context, uri string) (path string, err error) {
-	slog.Debug("attempting to pull feature tarball", "uri", uri)
+	//slog.Debug("attempting to pull feature tarball", "uri", uri)
+	slog.Error("SUPPORT FOR HTTPS-HOSTED FEATURE TARBALLS IS CURRENTLY UNIMPLEMENTED")
 	_, err = cmd.getCacheDirectory()
 	if err != nil {
 		slog.Error("encountered an error while attempting to get cache directory", "error", err)
