@@ -101,7 +101,7 @@ type DevcontainerConfig struct {
 	// parallel.
 	OnCreateCommand      *LifecycleCommand `json:"onCreateCommand,omitempty"`
 	OtherPortsAttributes *PortAttributes   `json:"otherPortsAttributes,omitempty"`
-	// Array consisting of the Feature id (without the semantic version) of Features in the
+	// Array consisting of the Feature ID (without the semantic version) of Features in the
 	// order the user wants them to be installed.
 	OverrideFeatureInstallOrder []string                  `json:"overrideFeatureInstallOrder,omitempty"`
 	PortsAttributes             map[string]PortAttributes `json:"portsAttributes,omitempty"`
@@ -176,6 +176,8 @@ type BuildOptions struct {
 // later files can override values set in previous ones.
 type DockerComposeFile []string
 
+// EnvVarMap is a simple key-value map representing environment
+// variables.
 type EnvVarMap map[string]string
 
 type FeatureMap map[string]Feature
