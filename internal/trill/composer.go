@@ -392,6 +392,15 @@ func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *c
 		if p.Config.WorkspaceFolder != nil {
 			containerCfg.WorkingDir = *p.Config.WorkspaceFolder
 		}
+
+		if len(p.Config.Features) > 0 {
+			contextPath := filepath.Dir(p.Filepath)
+			if err := c.FeatureImageBuilder(contextPath, containerCfg.Image, imageTag); err != nil {
+				slog.Error("encountered an error while trying to build a feature-integrated image for a service", "error", err)
+				return err
+			}
+			containerCfg.Image = imageTag
+		}
 	}
 
 	slog.Debug("starting Composer service container", "name", containerName)
