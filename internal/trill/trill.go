@@ -51,6 +51,8 @@ const (
 // actually produces a port number beyond the privileged port range.
 type PrivilegedPortElevator func(uint16) uint16
 
+type FeatureImageBuilder func(ctxPath string, baseImage string, imageTag string) error
+
 // Client holds metadata for communicating with Podman/Docker.
 type Client struct {
 	ContainerID string // The internal ID the API assigned to the created container
@@ -58,6 +60,7 @@ type Client struct {
 	// the container named in the service field) lifecycle events on
 	DevcontainerLifecycleChan chan LifecycleEvents
 	DevcontainerLifecycleResp chan bool
+	FeatureImageBuilder       FeatureImageBuilder
 	Platform                  Platform               // Platform details for any containers created
 	PrivilegedPortElevator    PrivilegedPortElevator // If non-nil, will be called whenever a binding for a port number < 1024 is encountered; its return value will be used in place of the original port
 	SocketAddr                string                 // The socket/named pipe used to communicate with the server
@@ -78,12 +81,13 @@ type Platform ocispec.Platform
 //
 // If it encounters an error creating the underlying connection, it
 // panics.
-func NewClient(socketAddr string, platform Platform, privilegedPortElevator *PrivilegedPortElevator) *Client {
+func NewClient(socketAddr string, platform Platform, featureImageBuilder FeatureImageBuilder, privilegedPortElevator PrivilegedPortElevator) *Client {
 	c := &Client{
 		DevcontainerLifecycleChan: make(chan LifecycleEvents),
 		DevcontainerLifecycleResp: make(chan bool, 1),
+		FeatureImageBuilder:       featureImageBuilder,
 		Platform:                  platform,
-		PrivilegedPortElevator:    *privilegedPortElevator,
+		PrivilegedPortElevator:    privilegedPortElevator,
 		SocketAddr:                socketAddr,
 	}
 
