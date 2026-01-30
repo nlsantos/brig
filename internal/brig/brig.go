@@ -228,25 +228,9 @@ func NewCommand(appName string, appVersion string) ExitCode {
 		case parser.Config.Image != nil && len(*parser.Config.Image) > 0:
 			imageTag = *parser.Config.Image
 			if len(parser.Config.Features) > 0 {
-				contextPath := filepath.Dir(parser.Filepath)
 				// Use the .devcontainer directory as the context path
-				featuresBasePath, err := cmd.CopyFeaturesToContextDirectory(contextPath)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					_ = os.RemoveAll(featuresBasePath)
-				}()
-
-				containerfilePath, err := cmd.GenerateContainerfileWithFeatures(contextPath, imageTag)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					_ = os.Remove(containerfilePath)
-				}()
-
-				if err = cmd.trillClient.BuildContainerImage(contextPath, containerfilePath, imageName, nil, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
+				contextPath := filepath.Dir(parser.Filepath)
+				if err = cmd.BuildImageWithFeatures(contextPath, imageTag, imageName); err != nil {
 					slog.Error("encountered an error while trying to build a feature-integrated image", "error", err)
 					return err
 				}

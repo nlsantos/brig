@@ -88,6 +88,33 @@ func (cmd *Command) BuildFeaturesInstallationGraph() (installDAG *dag.DAG, err e
 	return installDAG, nil
 }
 
+// BuildImageWithFeatures builds an OCI image with baseImage as the
+// base and tags the resulting image as imageTag. The built OCI image
+// bundles in all of a devcontainer's Features, making them available
+// in the resulting container.
+func (cmd *Command) BuildImageWithFeatures(ctxPath string, baseImage string, imageTag string) (err error) {
+	featuresBasePath, err := cmd.CopyFeaturesToContextDirectory(ctxPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.RemoveAll(featuresBasePath)
+	}()
+
+	containerfilePath, err := cmd.GenerateContainerfileWithFeatures(ctxPath, baseImage)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.Remove(containerfilePath)
+	}()
+
+	if err = cmd.trillClient.BuildContainerImage(ctxPath, containerfilePath, imageTag, nil, cmd.Options.SkipBuild, cmd.suppressOutput); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CopyFeaturesToContextDirectory iterates over a devcontainer's
 // Features and copies their files from the cache directory into the
 // devcontainer's context directory (an actual context directory if
