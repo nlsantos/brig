@@ -358,12 +358,14 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
 	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
-	slog.Debug("converting service config to Moby equivalents", "name", containerName)
 
+	slog.Debug("waiting for service dependencies", "service", serviceCfg.Name)
 	c.waitForServiceDependencies(&serviceCfg.DependsOn)
 
+	slog.Debug("converting service config to Moby equivalents", "name", containerName)
 	containerCfg := c.buildServiceContainerConfig(p, serviceCfg)
 	hostCfg := c.buildServiceHostConfig(serviceCfg)
+
 	if serviceCfg.Build != nil {
 		buildOpts, err := c.buildServiceBuildOpts(serviceCfg.Build, suppressOutput)
 		if err != nil {
@@ -381,8 +383,8 @@ func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *c
 		containerCfg.Image = serviceCfg.Image
 	}
 
-	slog.Debug("creating Composer service container", "name", containerName)
-	if *p.Config.Service == serviceCfg.Name {
+	isDevcontainer := *p.Config.Service == serviceCfg.Name
+	if isDevcontainer {
 		if p.Config.ContainerUser != nil {
 			containerCfg.User = *p.Config.ContainerUser
 		}
@@ -390,11 +392,10 @@ func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *c
 		if p.Config.WorkspaceFolder != nil {
 			containerCfg.WorkingDir = *p.Config.WorkspaceFolder
 		}
-
-		return c.StartContainer(p, containerCfg, hostCfg, containerName, true)
 	}
 
-	return c.StartContainer(p, containerCfg, hostCfg, containerName, false)
+	slog.Debug("starting Composer service container", "name", containerName)
+	return c.StartContainer(p, containerCfg, hostCfg, containerName, isDevcontainer)
 }
 
 // createComposerServices iterates through servicesDAG breadth-first
