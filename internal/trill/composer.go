@@ -355,14 +355,6 @@ func (c *Client) createComposerNetworks(networks map[string]composetypes.Network
 // createComposerService provisions a single Composer service, and is
 // intended to be called by createComposerServices when it walks a DAG
 // of services.
-//
-// On return, if the service it provisioned requires it, the WaitFunc
-// field of its return value is populated with a function that needs
-// to be run to completion to ensure the successful provisioning and
-// functioning of its target service.
-//
-// If it encounters an error, the Error field of its return value is
-// populated.
 func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *composetypes.ServiceConfig, imageTagPrefix string, skipBuildIfAvailable bool, skipPullIfAvailable bool, suppressOutput bool) error {
 	containerName := fmt.Sprintf("%s--%s", c.composerProject.Name, serviceCfg.Name)
 	imageTag := fmt.Sprintf("%s%s", imageTagPrefix, containerName)
