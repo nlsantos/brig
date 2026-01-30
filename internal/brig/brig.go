@@ -210,6 +210,14 @@ func NewCommand(appName string, appVersion string) ExitCode {
 				slog.Error("encountered an error while trying to build an image based on devcontainer.json", "error", err)
 				return err
 			}
+			if len(parser.Config.Features) > 0 {
+				// Use the .devcontainer directory as the context path
+				contextPath := filepath.Dir(parser.Filepath)
+				if err = cmd.BuildImageWithFeatures(contextPath, imageTag, imageTag); err != nil {
+					slog.Error("encountered an error while trying to build a feature-integrated image", "error", err)
+					return err
+				}
+			}
 			if err = cmd.trillClient.StartDevcontainerContainer(parser, imageTag, imageName); err != nil {
 				slog.Error("encountered an error while trying to start the devcontainer", "error", err)
 				return err
