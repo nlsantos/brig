@@ -27,6 +27,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/codeclysm/extract/v4"
@@ -44,7 +45,7 @@ const FeatureLayerMediaType string = "application/vnd.devcontainers.layer.v1+tar
 // BuildFeaturesInstallationGraph iterates over a devcontainer's
 // Features and builds a directed acyclic graph that can be used to
 // guide Features' installation order.
-func (cmd *Command) BuildFeaturesInstallationGraph() (installDAG *dag.DAG, err error) {
+func (cmd *Command) BuildFeaturesInstallationGraph(orderOverride *[]string) (installDAG *dag.DAG, err error) {
 	installDAG = dag.NewDAG()
 	for featureID, featureParser := range cmd.featureParsersLookup {
 		vertexID := featureID
@@ -85,6 +86,22 @@ func (cmd *Command) BuildFeaturesInstallationGraph() (installDAG *dag.DAG, err e
 			installDAG.AddEdge(dependency, featureID)
 		}
 	}
+
+	// If provided, set up edges to have the config's specified
+	// install order followed
+	processedFeatures := []string{}
+	for idx := range len(*orderOverride) - 1 {
+		overrideFeature := (*orderOverride)[idx]
+		processedFeatures = append(processedFeatures, overrideFeature)
+
+		for featureID := range cmd.featureParsersLookup {
+			if slices.Contains(processedFeatures, featureID) {
+				continue
+			}
+			installDAG.AddEdge(overrideFeature, featureID)
+		}
+	}
+
 	return installDAG, nil
 }
 

@@ -46,7 +46,7 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p 
 		switch event {
 		case trill.LifecycleFeatureInstall:
 			slog.Debug("lifecycle", "event", "feature:install")
-			installDAG, err := cmd.BuildFeaturesInstallationGraph()
+			installDAG, err := cmd.BuildFeaturesInstallationGraph(&p.Config.OverrideFeatureInstallOrder)
 			if err != nil {
 				return err
 			}
