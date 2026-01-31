@@ -1,0 +1,16 @@
+{
+  "name": "devcontainer feature install order test",
+  "image": "does-not-matter",
+  "features": {
+    "./alpha": {},
+    "./beta": {},
+    "./delta": {},
+    "./gamma": {},
+  },
+  "overrideFeatureInstallOrder": [
+    "./beta",
+    "./gamma",
+    "./alpha",
+    "./delta"
+  ]
+}
