@@ -1,5 +1,5 @@
 {
-    "id": "alpha",
+    "id": "epsilon",
     "version": "1.0.0",
     "name": "minimal devcontainer-feature.json with dependency",
     "dependsOn": {

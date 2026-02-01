@@ -22,8 +22,8 @@ func TestParseDependsOnSimple(t *testing.T) {
 
 	cmd := Command{featureParsersLookup: make(map[string]*writ.DevcontainerFeatureParser)}
 
-	for _, feature := range []string{"alpha", "beta", "gamma", "delta"} {
-		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features-dependson", fmt.Sprintf("%s.json", feature)), nil)
+	for _, feature := range []string{"beta", "delta", "epsilon", "zeta"} {
+		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features", fmt.Sprintf("%s.json", feature)), nil)
 		assert.Nil(t, err)
 		assert.Nil(t, p.Validate())
 		assert.Nil(t, p.Parse())
@@ -36,7 +36,7 @@ func TestParseDependsOnSimple(t *testing.T) {
 
 	installOrder := [][]string{
 		[]string{"./beta", "./delta"},
-		[]string{"./alpha", "./gamma"},
+		[]string{"./epsilon", "./zeta"},
 	}
 	rootIdx := 0
 	roots := slices.Collect(maps.Keys(installDAG.GetRoots()))
@@ -58,15 +58,15 @@ func TestParseDependsOnWithOverride(t *testing.T) {
 	// Config composition is done manually to bypass set up and
 	// constraints we don't really need nor want
 
-	dcParser, err := writ.NewDevcontainerParser(filepath.Join("testdata", "features-dependson", "devcontainer.json"))
+	dcParser, err := writ.NewDevcontainerParser(filepath.Join("testdata", "features", "dependson-install-override.json"))
 	assert.Nil(t, err)
 	assert.Nil(t, dcParser.Validate())
 	assert.Nil(t, dcParser.Parse())
 
 	cmd := Command{featureParsersLookup: make(map[string]*writ.DevcontainerFeatureParser)}
 
-	for _, feature := range []string{"alpha", "beta", "gamma", "delta"} {
-		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features-dependson", fmt.Sprintf("%s.json", feature)), nil)
+	for _, feature := range []string{"beta", "delta", "epsilon", "zeta"} {
+		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features", fmt.Sprintf("%s.json", feature)), nil)
 		assert.Nil(t, err)
 		assert.Nil(t, p.Validate())
 		assert.Nil(t, p.Parse())

@@ -1,0 +1,12 @@
+{
+  "name": "devcontainer w/ feature + dependsOn + install override test",
+  "image": "does-not-matter",
+  "features": {
+    "./epsilon": {},
+    "./zeta": {},
+  },
+  "overrideFeatureInstallOrder": [
+    "./zeta",
+    "./epsilon"
+  ]
+}
