@@ -66,7 +66,7 @@ func (cmd *Command) BuildFeaturesInstallationGraph(orderOverride *[]string) (ins
 			edgeID := dependencyID
 			if !strings.HasPrefix(dependencyID, "https://") {
 				// Remove version tags from dependency IDs
-				dependencyIDAndTag := strings.Split(featureID, ":")
+				dependencyIDAndTag := strings.Split(edgeID, ":")
 				edgeID = dependencyIDAndTag[0]
 			}
 			installDAG.AddEdge(edgeID, featureID)
