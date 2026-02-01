@@ -107,14 +107,14 @@ func TestParseOverrideFeatureInstallOrderStandalone(t *testing.T) {
 	// Config composition is done manually to bypass set up and
 	// constraints we don't really need nor want
 
-	dcParser, err := writ.NewDevcontainerParser(filepath.Join("testdata", "features-standalone", "devcontainer.json"))
+	dcParser, err := writ.NewDevcontainerParser(filepath.Join("testdata", "features", "override-install-order.json"))
 	assert.Nil(t, err)
 	assert.Nil(t, dcParser.Validate())
 	assert.Nil(t, dcParser.Parse())
 
 	cmd := Command{featureParsersLookup: make(map[string]*writ.DevcontainerFeatureParser)}
 	for _, feature := range []string{"alpha", "beta", "gamma", "delta"} {
-		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features-standalone", fmt.Sprintf("%s.json", feature)), nil)
+		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features", fmt.Sprintf("%s.json", feature)), nil)
 		assert.Nil(t, err)
 		assert.Nil(t, p.Validate())
 		assert.Nil(t, p.Parse())
