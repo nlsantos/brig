@@ -23,7 +23,7 @@ func TestParseDependsOnSimple(t *testing.T) {
 	cmd := Command{featureParsersLookup: make(map[string]*writ.DevcontainerFeatureParser)}
 
 	for _, feature := range []string{"alpha", "beta", "gamma", "delta"} {
-		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features-dependson-simple", fmt.Sprintf("%s.json", feature)), nil)
+		p, err := writ.NewDevcontainerFeatureParser(filepath.Join("testdata", "features-dependson", fmt.Sprintf("%s.json", feature)), nil)
 		assert.Nil(t, err)
 		assert.Nil(t, p.Validate())
 		assert.Nil(t, p.Parse())
