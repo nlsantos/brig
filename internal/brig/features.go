@@ -89,16 +89,18 @@ func (cmd *Command) BuildFeaturesInstallationGraph(orderOverride *[]string) (ins
 
 	// If provided, set up edges to have the config's specified
 	// install order followed
-	processedFeatures := []string{}
-	for idx := range len(*orderOverride) - 1 {
-		overrideFeature := (*orderOverride)[idx]
-		processedFeatures = append(processedFeatures, overrideFeature)
+	if orderOverride != nil {
+		processedFeatures := []string{}
+		for idx := range len(*orderOverride) - 1 {
+			overrideFeature := (*orderOverride)[idx]
+			processedFeatures = append(processedFeatures, overrideFeature)
 
-		for featureID := range cmd.featureParsersLookup {
-			if slices.Contains(processedFeatures, featureID) {
-				continue
+			for featureID := range cmd.featureParsersLookup {
+				if slices.Contains(processedFeatures, featureID) {
+					continue
+				}
+				installDAG.AddEdge(overrideFeature, featureID)
 			}
-			installDAG.AddEdge(overrideFeature, featureID)
 		}
 	}
 
