@@ -16,6 +16,10 @@ While it is still  **alpha software**, `brig` supports enough features of the sp
 | | **[Host requirements](https://containers.dev/implementors/json_reference/#min-host-reqs)** | ❓️ | Planned, but low priority |
 | **Environment variables** | **[Special variables](https://containers.dev/implementors/json_reference/#variables-in-devcontainerjson)** | ✅️️️ | Fully supported |
 | | **Variable expansion** | ✅️️️ | Fully supported, with [extra features](#variable-expansion) |
+| **[Devcontainer Features](https://containers.dev/implementors/features/)** | **General** | ⚠️️️ | Basic support implemented; full compliance is a WIP  |
+| | **HTTPS-hosted tarballs** | ❓️️️️️️️ | Planned, but low priority |
+| | **Locally-stored features** | ✅️️️️️️ | Fully supported |
+| | **OCI artifacts** | ✅️️️️️️ | Pulling from publicly-accessible registries fully supported |
 | **Lifecycle** | **Image-based** | ✅️ | Pulls from remote registries |
 | | **Build-based** | ⚠️️ | Builds via `dockerFile` using `context`; support for `build.*` fields is a WIP |
 | | **Composer project** | ⚠️️️ | Multiple services via `dockerComposeFile`; support for `runServices` is a WIP |
