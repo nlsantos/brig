@@ -135,6 +135,7 @@ func NewCommand(appName string, appVersion string) ExitCode {
 	parser, err := writ.NewDevcontainerParser(targetDevcontainerJSON)
 	if err != nil {
 		slog.Error("encountered an error trying to create a devcontainer.json parser", "error", err)
+		return ExitNonValidDevcontainerJSON
 	}
 	if err = parser.Validate(); err != nil {
 		slog.Error("devcontainer.json has syntax errors", "path", targetDevcontainerJSON, "error", err)
