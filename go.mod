@@ -8,7 +8,7 @@ require (
 	github.com/codeclysm/extract/v4 v4.0.0
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/cli v29.2.1+incompatible
-	github.com/docker/docker v28.5.2+incompatible
+	github.com/docker/docker v25.0.14+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v6 v6.0.0-20251212081956-e83cbb9651e8
