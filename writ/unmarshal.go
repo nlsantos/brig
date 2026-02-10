@@ -19,11 +19,9 @@ package writ
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"strconv"
-	"strings"
 
-	"github.com/moby/moby/api/types/mount"
+	dockeropts "github.com/docker/cli/opts"
+	dockermounts "github.com/docker/docker/volume/mounts"
 )
 
 // UnmarshalJSON for the AppPort type
@@ -245,10 +243,6 @@ func (l *LifecycleCommand) UnmarshalJSON(data []byte) error {
 }
 
 // UnmarshalJSON for the MobyMount type
-//
-// If github.com/moby/moby/volume/mounts ever gets extracted into a
-// standalone module, this unmarshaller should switch to using its
-// Parser.
 func (m *MobyMount) UnmarshalJSON(data []byte) error {
 	type mobyMount MobyMount
 	if len(data) > 0 && data[0] == '{' {
@@ -260,33 +254,23 @@ func (m *MobyMount) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	for segment := range strings.SplitSeq(mountString, ",") {
-		splitSegment := strings.SplitN(segment, "=", 2)
-		splitSegment[0] = strings.ToLower(strings.TrimSpace(splitSegment[0]))
-		if len(splitSegment) > 1 {
-			splitSegment[1] = strings.TrimSpace(splitSegment[1])
-		} else {
-			splitSegment = append(splitSegment, "true")
-		}
-
-		switch splitSegment[0] {
-		case "src", "source":
-			m.Source = splitSegment[1]
-		case "destination", "dst", "target":
-			m.Target = splitSegment[1]
-		case "type":
-			m.Type = mount.Type(strings.ToLower(splitSegment[1]))
-		case "readonly", "ro":
-			readonlyVal, err := strconv.ParseBool(splitSegment[1])
-			if err != nil {
-				return err
-			}
-			m.ReadOnly = readonlyVal
-		case "consistency":
-			m.Consistency = mount.Consistency(splitSegment[1])
-		default:
-			slog.Debug("ignoring unknown mount directive", "key", splitSegment[0], "value", splitSegment[1])
-		}
+	// Try parsing as the CSV type
+	mountOpt := dockeropts.MountOpt{}
+	if err := mountOpt.Set(mountString); err == nil {
+		*m = (MobyMount)(mountOpt.Value()[0])
+		return err
 	}
-	return nil
+
+	// Try parsing as the short version
+	dockerParser := dockermounts.NewParser()
+	mountPt, err := dockerParser.ParseMountRaw(mountString, "")
+	if err == nil {
+		specJSON, err := json.Marshal(mountPt.Spec)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(specJSON, m)
+	}
+
+	return fmt.Errorf("unable to parse '%s' as a mount string", mountString)
 }
