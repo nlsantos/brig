@@ -35,8 +35,8 @@ func TestParseDependsOnSimple(t *testing.T) {
 	assert.Nil(t, err)
 
 	installOrder := [][]string{
-		[]string{"./beta", "./delta"},
-		[]string{"./epsilon", "./zeta"},
+		{"./beta", "./delta"},
+		{"./epsilon", "./zeta"},
 	}
 	rootIdx := 0
 	roots := slices.Collect(maps.Keys(installDAG.GetRoots()))
