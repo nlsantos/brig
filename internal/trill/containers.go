@@ -245,6 +245,12 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 
 	return createResp.ID, nil
 }
+
+func (c *Client) StopContainer(containerID string) error {
+	if _, err := c.mobyClient.ContainerStop(context.Background(), containerID, mobyclient.ContainerStopOptions{}); err != nil {
+		slog.Error("encountered an error while trying to stop a container", "error", err, "container-id", containerID)
+		return err
+	}
 	return nil
 }
 
@@ -253,10 +259,8 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 //
 // There is normally no reason to call this directly: this is intended
 // to assist with cleanup when errors are encountered.
-func (c *Client) StopDevcontainer() {
-	if _, err := c.mobyClient.ContainerStop(context.Background(), c.ContainerID, mobyclient.ContainerStopOptions{}); err != nil {
-		slog.Error("encountered an error while trying to stop the devcontainer", "error", err)
-	}
+func (c *Client) StopDevcontainer() error {
+	return c.StopContainer(c.ContainerID)
 }
 
 // AttachHostTerminalToDevcontainer attempts to route input from the
