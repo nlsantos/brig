@@ -386,7 +386,14 @@ func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *c
 	isDevcontainer := *p.Config.Service == serviceCfg.Name
 	if isDevcontainer {
 		if p.Config.ContainerUser != nil {
+			// If the devcontainer.json specifies containerUser, it will
+			// override the user field in the Compose config
 			containerCfg.User = *p.Config.ContainerUser
+		} else if len(containerCfg.User) > 0 {
+			// If containerUser in devcontainer.json isn't specified,
+			// but the Composer config has a user field for this
+			// service, use that instead
+			*p.Config.ContainerUser = containerCfg.User
 		}
 
 		if p.Config.WorkspaceFolder != nil {
