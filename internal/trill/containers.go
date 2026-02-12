@@ -149,13 +149,68 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 		}
 
 		if *p.Config.UpdateRemoteUserUID {
-			if *p.Config.ContainerUser == "root" {
+			numericUID, user_to_id_err := strconv.ParseUint(*p.Config.ContainerUser, 10, 32)
+			switch {
+			// containerUser could be a :-separated pair of IDs (e.g.,
+			// Composer project services)
+			case strings.Contains(*p.Config.ContainerUser, ":"):
+				idPair := strings.SplitN(*p.Config.ContainerUser, ":", 2)
+				uid, err := strconv.ParseUint(idPair[0], 10, 32)
+				if err != nil {
+					slog.Error("could not convert uid component of :-separated ID into a uint", "error", err, "id", *p.Config.ContainerUser)
+					return "", err
+				}
+				gid, err := strconv.ParseUint(idPair[1], 10, 32)
+				if err != nil {
+					slog.Error("could not convert gid component of :-separated ID into a uint", "error", err, "id", *p.Config.ContainerUser)
+					return "", err
+				}
+				hostCfg.UsernsMode = container.UsernsMode(fmt.Sprintf("keep-id:uid=%d,gid=%d", uid, gid))
+
+			// containerUser could be a single numeric user ID
+			case user_to_id_err == nil:
+				hostCfg.UsernsMode = container.UsernsMode(fmt.Sprintf("keep-id:uid=%d", numericUID))
+
+			case *p.Config.ContainerUser == "root":
 				// This doesn't seem to faze Docker (tested on Windows 11
 				// + Docker Desktop 4.55.0 (213807)) like I thought it
 				// would, so I'm just gonna leave this is.
 				hostCfg.UsernsMode = "keep-id:uid=0,gid=0"
+
+			default:
+				// Spin up a temporary container, grab the named
+				// user's numeric ID, then spin the temp container
+				// down
+				slog.Debug("non-root, non-numeric user ID specified", "id", *p.Config.ContainerUser)
+				tempContainerID, err := c.StartContainer(p, containerCfg, hostCfg, fmt.Sprintf("%s--temp", containerName), false)
+				if err != nil {
+					slog.Error("encountered an error while trying to spin up a temporary container to resolve the user's ID", "error", err)
+					return "", err
+				}
+				defer func() {
+					if tempContainerID != "" {
+						c.StopContainer(tempContainerID)
+					}
+				}()
+				cmdStdout, _, err := c.ExecInContainer(context.Background(), tempContainerID, "root", nil, true, fmt.Sprintf("id -u %s", *p.Config.ContainerUser))
+				if err != nil {
+					slog.Error("encountered an error while trying to resolve the user's ID", "error", err)
+					return "", err
+				}
+				if err = c.StopContainer(tempContainerID); err != nil {
+					return "", err
+				} else {
+					// Don't bother with the deferred cleanup
+					tempContainerID = ""
+				}
+				numericUID, err = strconv.ParseUint(strings.TrimSpace(cmdStdout.String()), 10, 32)
+				if err != nil {
+					slog.Error("encountered an error while trying to resolve the user's ID", "error", err)
+					return "", err
+				}
+
+				hostCfg.UsernsMode = container.UsernsMode(fmt.Sprintf("keep-id:uid=%d", numericUID))
 			}
-			// TODO: Add logic for the non-root scenario
 		}
 
 		// Lifecycle: initialize
