@@ -135,8 +135,6 @@ func (c *Client) StartDevcontainerContainer(p *writ.DevcontainerParser, imageTag
 // then starts it.
 func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string, isDevcontainer bool) error {
 	if isDevcontainer {
-		p.DevcontainerID = &c.ContainerID
-
 		if err := c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
 			slog.Error("encountered an error binding forwardPorts items", "error", err)
 			return err
