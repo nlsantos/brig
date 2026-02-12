@@ -411,7 +411,8 @@ func (c *Client) createComposerService(p *writ.DevcontainerParser, serviceCfg *c
 	}
 
 	slog.Debug("starting Composer service container", "name", containerName)
-	return c.StartContainer(p, containerCfg, hostCfg, containerName, isDevcontainer)
+	_, err := c.StartContainer(p, containerCfg, hostCfg, containerName, isDevcontainer)
+	return err
 }
 
 // createComposerServices iterates through servicesDAG breadth-first
