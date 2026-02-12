@@ -118,32 +118,34 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, remote
 // Requires metadata parsed from a devcontainer.json config, the
 // tag/image name for the OCI image to use as base, and a name for the
 // created container.
-func (c *Client) StartDevcontainerContainer(p *writ.DevcontainerParser, imageTag string, containerName string) error {
+func (c *Client) StartDevcontainerContainer(p *writ.DevcontainerParser, imageTag string, containerName string) (err error) {
 	slog.Debug("attempting to start and attach to devcontainer", "tag", imageTag, "name", containerName)
 	containerCfg := c.buildContainerConfig(p, imageTag)
 	hostCfg := c.buildHostConfig(p)
 
-	if err := c.bindAppPorts(p, containerCfg, hostCfg); err != nil {
+	if err = c.bindAppPorts(p, containerCfg, hostCfg); err != nil {
 		slog.Error("encountered an error binding appPorts items", "error", err)
 		return err
 	}
 
-	return c.StartContainer(p, containerCfg, hostCfg, containerName, true)
+	containerID, err := c.StartContainer(p, containerCfg, hostCfg, containerName, true)
+	p.DevcontainerID = &containerID
+	return err
 }
 
 // StartContainer creates a container based on the passed in arguments
 // then starts it.
-func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string, isDevcontainer bool) error {
+func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *container.Config, hostCfg *container.HostConfig, containerName string, isDevcontainer bool) (containerID string, err error) {
 	if isDevcontainer {
-		if err := c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
+		if err = c.bindForwardPorts(p, containerCfg, hostCfg); err != nil {
 			slog.Error("encountered an error binding forwardPorts items", "error", err)
-			return err
+			return "", err
 		}
 		c.bindMounts(p, hostCfg)
 
-		if err := c.setContainerAndRemoteUser(p, containerCfg.Image); err != nil {
+		if err = c.setContainerAndRemoteUser(p, containerCfg.Image); err != nil {
 			slog.Error("encountered an error while attempting to determine container/remote user", "image", containerCfg.Image, "error", err)
-			return err
+			return "", err
 		}
 
 		if *p.Config.UpdateRemoteUserUID {
@@ -159,7 +161,7 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 		// Lifecycle: initialize
 		c.DevcontainerLifecycleChan <- LifecycleInitialize
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
+			return "", ErrLifecycleHandler
 		}
 	}
 
@@ -175,7 +177,7 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 	})
 	if err != nil {
 		slog.Error("encountered an error creating a container", "error", err)
-		return err
+		return "", err
 	}
 	slog.Debug("container created successfully", "id", createResp.ID)
 
@@ -201,7 +203,7 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 		})
 		if err != nil {
 			slog.Error("encountered an error attaching to the container", "error", err)
-			return err
+			return c.ContainerID, err
 		}
 		slog.Debug("successfully attached to container", "id", c.ContainerID)
 		c.attachResp = &attachResp
@@ -212,7 +214,7 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 	// exposed by the devcontainer spec
 	if _, err := c.mobyClient.ContainerStart(ctx, createResp.ID, mobyclient.ContainerStartOptions{}); err != nil {
 		slog.Error("encountered an error while trying to start the container", "error", err)
-		return err
+		return createResp.ID, err
 	}
 	slog.Debug("container started successfully", "id", createResp.ID)
 
@@ -220,27 +222,29 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 		// Lifecycle: featureInstall
 		c.DevcontainerLifecycleChan <- LifecycleFeatureInstall
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
+			return c.ContainerID, ErrLifecycleHandler
 		}
 		// Lifecycle hooks
 		c.DevcontainerLifecycleChan <- LifecycleOnCreate
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
+			return c.ContainerID, ErrLifecycleHandler
 		}
 		c.DevcontainerLifecycleChan <- LifecycleUpdate
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
+			return c.ContainerID, ErrLifecycleHandler
 		}
 		c.DevcontainerLifecycleChan <- LifecyclePostCreate
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
+			return c.ContainerID, ErrLifecycleHandler
 		}
 		c.DevcontainerLifecycleChan <- LifecyclePostStart
 		if ok := <-c.DevcontainerLifecycleResp; !ok {
-			return ErrLifecycleHandler
+			return c.ContainerID, ErrLifecycleHandler
 		}
 	}
 
+	return createResp.ID, nil
+}
 	return nil
 }
 
