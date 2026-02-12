@@ -77,7 +77,7 @@ func (cmd *Command) lifecycleHandler(ctx context.Context, eg *errgroup.Group, p 
 						}
 					}
 
-					if err = cmd.trillClient.ExecInDevcontainer(ctx, "root", featureOptions, false, featureInstallScript); err != nil {
+					if _, _, err = cmd.trillClient.ExecInDevcontainer(ctx, "root", featureOptions, false, featureInstallScript); err != nil {
 						return err
 					}
 				}
@@ -208,7 +208,8 @@ func (cmd *Command) runLifecycleCommand(ctx context.Context, lc *writ.LifecycleC
 // container in non-Composer configurations, or the one named in the
 // service field otherwise).
 func (cmd *Command) runLifecycleCommandInContainer(ctx context.Context, p *writ.DevcontainerParser, runInShell bool, args ...string) error {
-	return cmd.trillClient.ExecInDevcontainer(ctx, *p.Config.RemoteUser, &p.Config.RemoteEnv, runInShell, args...)
+	_, _, err := cmd.trillClient.ExecInDevcontainer(ctx, *p.Config.RemoteUser, &p.Config.RemoteEnv, runInShell, args...)
+	return err
 }
 
 // runLifecycleCommandOnHost executes a lifecycle command parameter
