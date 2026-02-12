@@ -74,7 +74,7 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, remote
 		AttachStdout: true,
 		Cmd:          args,
 	}
-	if len(*env) > 0 {
+	if env != nil && len(*env) > 0 {
 		for name, val := range *env {
 			execCreateOpts.Env = append(execCreateOpts.Env, fmt.Sprintf("%s=%s", name, val))
 		}
