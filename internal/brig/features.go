@@ -188,7 +188,7 @@ func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage 
 	defer containerfile.Close()
 
 	remoteFeaturePathLookup := make(map[string]string)
-	containerfile.WriteString(fmt.Sprintf("FROM %s\n", baseImage))
+	fmt.Fprintf(containerfile, "FROM %s\n", baseImage)
 	for featureID, featurePath := range cmd.featurePathLookup {
 		relFeaturePath, err := filepath.Rel(ctxPath, featurePath)
 		if err != nil {
@@ -202,7 +202,7 @@ func (cmd *Command) GenerateContainerfileWithFeatures(ctxPath string, baseImage 
 		// Massage feature parser to the path within the OCI image for
 		// later execution
 		cmd.featureParsersLookup[featureID].Filepath = remoteConfigPath
-		containerfile.WriteString(fmt.Sprintf("COPY \"%s/*\" \"%s/\"\n", relFeaturePath, remotePath))
+		fmt.Fprintf(containerfile, "COPY \"%s/*\" \"%s/\"\n", relFeaturePath, remotePath)
 	}
 	// Overwrite previously set lookup table
 	cmd.featurePathLookup = remoteFeaturePathLookup
