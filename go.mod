@@ -15,6 +15,7 @@ require (
 	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
 	github.com/golang-cz/devslog v0.0.15
 	github.com/heimdalr/dag v1.5.0
+	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/moby/docker-image-spec v1.3.1
 	github.com/moby/go-archive v0.1.0
 	github.com/moby/moby/api v1.52.0

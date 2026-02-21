@@ -32,6 +32,7 @@ import (
 	"syscall"
 
 	"github.com/docker/go-connections/nat"
+	"github.com/matoous/go-nanoid/v2"
 	imagespec "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
@@ -112,6 +113,28 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, remote
 	return cmdStdout, cmdStderr, err
 }
 
+// ExecInTempContainer spins up a container based on containerCfg and
+// hostCfg then runs the specified command in it, returning the stdout
+// and stderr (if applicable).
+func (c *Client) ExecInTempContainer(ctx context.Context, containerCfg *container.Config, hostCfg *container.HostConfig, env *writ.EnvVarMap, args ...string) (cmdStdout bytes.Buffer, cmdStderr bytes.Buffer, err error) {
+	tempContainerName, err := gonanoid.New(16)
+	if err != nil {
+		slog.Error("encountered an error while trying to generate a name for a temporary container", "error", err)
+		return cmdStdout, cmdStderr, err
+	}
+	tempContainerID, err := c.StartContainer(nil, containerCfg, hostCfg, fmt.Sprintf("tmp--%s", tempContainerName), false)
+	if err != nil {
+		slog.Error("encountered an error while spinning up a temporary container", "error", err)
+		return cmdStdout, cmdStderr, err
+	}
+	defer func() {
+		if tempContainerID != "" {
+			c.StopContainer(tempContainerID)
+		}
+	}()
+	return c.ExecInContainer(context.Background(), tempContainerID, containerCfg.User, env, true, args...)
+}
+
 // StartDevcontainerContainer starts and attaches to a container based
 // on configuration from devcontainer.json.
 //
@@ -181,34 +204,19 @@ func (c *Client) StartContainer(p *writ.DevcontainerParser, containerCfg *contai
 				// Spin up a temporary container, grab the named
 				// user's numeric ID, then spin the temp container
 				// down
+				dupContainerCfg := *containerCfg
+				dupContainerCfg.User = "root"
 				slog.Debug("non-root, non-numeric user ID specified", "id", *p.Config.ContainerUser)
-				tempContainerID, err := c.StartContainer(p, containerCfg, hostCfg, fmt.Sprintf("%s--temp", containerName), false)
+				cmdStdout, _, err := c.ExecInTempContainer(context.Background(), &dupContainerCfg, hostCfg, nil, fmt.Sprintf("id -u %s", *p.Config.ContainerUser))
 				if err != nil {
 					slog.Error("encountered an error while trying to spin up a temporary container to resolve the user's ID", "error", err)
 					return "", err
-				}
-				defer func() {
-					if tempContainerID != "" {
-						c.StopContainer(tempContainerID)
-					}
-				}()
-				cmdStdout, _, err := c.ExecInContainer(context.Background(), tempContainerID, "root", nil, true, fmt.Sprintf("id -u %s", *p.Config.ContainerUser))
-				if err != nil {
-					slog.Error("encountered an error while trying to resolve the user's ID", "error", err)
-					return "", err
-				}
-				if err = c.StopContainer(tempContainerID); err != nil {
-					return "", err
-				} else {
-					// Don't bother with the deferred cleanup
-					tempContainerID = ""
 				}
 				numericUID, err = strconv.ParseUint(strings.TrimSpace(cmdStdout.String()), 10, 32)
 				if err != nil {
 					slog.Error("encountered an error while trying to resolve the user's ID", "error", err)
 					return "", err
 				}
-
 				hostCfg.UsernsMode = container.UsernsMode(fmt.Sprintf("keep-id:uid=%d", numericUID))
 			}
 		}
