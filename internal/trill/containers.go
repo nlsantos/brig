@@ -117,6 +117,24 @@ func (c *Client) ExecInContainer(ctx context.Context, containerID string, remote
 // hostCfg then runs the specified command in it, returning the stdout
 // and stderr (if applicable).
 func (c *Client) ExecInTempContainer(ctx context.Context, containerCfg *container.Config, hostCfg *container.HostConfig, env *writ.EnvVarMap, args ...string) (cmdStdout bytes.Buffer, cmdStderr bytes.Buffer, err error) {
+	singleExecArg := [][]string{args}
+	cmdSO, cmdSE, err := c.MultiExecInTempContainer(ctx, containerCfg, hostCfg, env, singleExecArg)
+	if err == nil {
+		if len(cmdSO) > 0 {
+			cmdStdout = cmdSO[0]
+		}
+		if len(cmdSE) > 0 {
+			cmdStderr = cmdSE[0]
+		}
+	}
+	return cmdStdout, cmdStderr, err
+}
+
+// MultiExecInTempContainer spins up a container based on containerCfg
+// and hostCfg then runs the list of commands specified in args in the
+// spun up container, returning their stdout and stderr in the same
+// order (if applicable).
+func (c *Client) MultiExecInTempContainer(ctx context.Context, containerCfg *container.Config, hostCfg *container.HostConfig, env *writ.EnvVarMap, args [][]string) (cmdStdout []bytes.Buffer, cmdStderr []bytes.Buffer, err error) {
 	tempContainerName, err := gonanoid.New(16)
 	if err != nil {
 		slog.Error("encountered an error while trying to generate a name for a temporary container", "error", err)
@@ -132,7 +150,17 @@ func (c *Client) ExecInTempContainer(ctx context.Context, containerCfg *containe
 			c.StopContainer(tempContainerID)
 		}
 	}()
-	return c.ExecInContainer(context.Background(), tempContainerID, containerCfg.User, env, true, args...)
+
+	for _, arg := range args {
+		cmdSO, cmdSE, err := c.ExecInContainer(context.Background(), tempContainerID, containerCfg.User, env, true, arg...)
+		if err != nil {
+			break
+		}
+		cmdStdout = append(cmdStdout, cmdSO)
+		cmdStderr = append(cmdStderr, cmdSE)
+	}
+
+	return cmdStdout, cmdStderr, err
 }
 
 // StartDevcontainerContainer starts and attaches to a container based
