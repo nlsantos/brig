@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -173,6 +174,60 @@ func (c *Client) StartDevcontainerContainer(p *writ.DevcontainerParser, imageTag
 	slog.Debug("attempting to start and attach to devcontainer", "tag", imageTag, "name", containerName)
 	containerCfg := c.buildContainerConfig(p, imageTag)
 	hostCfg := c.buildHostConfig(p)
+
+	// TODO: Respect userEnvProbe
+	if p.EnvProbeNeeded {
+		if len(p.Config.ContainerEnv) > 0 {
+			dupContainerCfg := *containerCfg
+			dupContainerCfg.Env = []string{}
+			cmdStdout, _, err := c.ExecInTempContainer(context.Background(), &dupContainerCfg, hostCfg, nil, "export")
+			if err != nil {
+				return err
+			}
+			lineSep := regexp.MustCompile(`\r?\n|\r`)
+			for _, export := range lineSep.Split(strings.TrimSpace(cmdStdout.String()), -1) {
+				splitExport := strings.SplitN(export, "=", 2)
+				varNameFields := strings.Fields(splitExport[0])
+				if len(varNameFields) < 1 {
+					continue
+				}
+				varName := varNameFields[len(varNameFields)-1]
+				if strings.HasPrefix(varName, "BASH_FUNC__") {
+					continue
+				}
+				p.EnvVarsContainer[varName] = strings.Trim(splitExport[1], `'"`)
+			}
+		}
+
+		if len(p.Config.RemoteEnv) > 0 {
+			if *p.Config.RemoteUser == *p.Config.ContainerUser {
+				p.EnvVarsRemote = p.EnvVarsContainer
+			} else {
+				dupContainerCfg := *containerCfg
+				dupContainerCfg.User = *p.Config.RemoteUser
+				cmdStdout, _, err := c.ExecInTempContainer(context.Background(), containerCfg, hostCfg, nil, "export")
+				if err != nil {
+					return err
+				}
+				lineSep := regexp.MustCompile(`\r?\n|\r`)
+				for _, export := range lineSep.Split(strings.TrimSpace(cmdStdout.String()), -1) {
+					splitExport := strings.SplitN(export, "=", 2)
+					varNameFields := strings.Fields(splitExport[0])
+					if len(varNameFields) < 1 {
+						continue
+					}
+					varName := varNameFields[len(varNameFields)-1]
+					if strings.HasPrefix(varName, "BASH_FUNC__") {
+						continue
+					}
+					p.EnvVarsContainer[varName] = strings.Trim(splitExport[1], `'"`)
+				}
+			}
+		}
+		p.EnvProbeNeeded = false
+		p.ProcessSubstitutions()
+		containerCfg = c.buildContainerConfig(p, imageTag)
+	}
 
 	if err = c.bindAppPorts(p, containerCfg, hostCfg); err != nil {
 		slog.Error("encountered an error binding appPorts items", "error", err)
