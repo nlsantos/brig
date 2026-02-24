@@ -349,6 +349,7 @@ func TestParseDevcontainerVarExpansion(t *testing.T) {
 	if err := p.Parse(); err != nil {
 		t.Fatal("devcontainer.json expected to be valid failed parsing")
 	}
+	p.ProcessSubstitutions()
 
 	containerEnv := EnvVarMap{
 		// devcontainer spec vars
@@ -390,8 +391,8 @@ func TestParseDevcontainerVarExpansion(t *testing.T) {
 	assert.Equal(t, p.Config.ContainerEnv, containerEnv, "fields not matching")
 
 	for _, mount := range p.Config.Mounts {
-		assert.Equal(t, mount.Source, localEnvVars["BRIG_TEST_MOUNT_SOURCE"])
-		assert.Equal(t, mount.Target, localEnvVars["BRIG_TEST_MOUNT_TARGET"])
+		assert.Equal(t, localEnvVars["BRIG_TEST_MOUNT_SOURCE"], mount.Source)
+		assert.Equal(t, localEnvVars["BRIG_TEST_MOUNT_TARGET"], mount.Target)
 	}
 }
 
