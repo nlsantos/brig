@@ -63,6 +63,10 @@ type DevcontainerParser struct {
 	Config         DevcontainerConfig // The parsed contents of the target devcontainer.json
 	DevcontainerID *string            // The runtime-specific ID for the devcontainer; not available until after it's created
 
+	EnvProbeNeeded   bool              // Helper flag to keep track of whether or not a probe has been performed to populate the envVars* fields
+	EnvVarsContainer map[string]string // A map of environment variables available to the container's intended interactive user; used when interpolating containerEnv:* values
+	EnvVarsRemote    map[string]string // A map of environment variables available to tooling meant to interact with the devcontainer; used when interpolating remoteEnv:* values
+
 	Parser
 }
 
@@ -77,7 +81,12 @@ func NewDevcontainerParser(configPath string) (p *DevcontainerParser, err error)
 	}
 	parser.jsonSchema = devcontainerJSONSchema
 	parser.jsonSchemaPath = devcontainerJSONSchemaPath
-	return &DevcontainerParser{Parser: *parser}, nil
+	return &DevcontainerParser{
+		EnvProbeNeeded:   true,
+		EnvVarsContainer: map[string]string{},
+		EnvVarsRemote:    map[string]string{},
+		Parser:           *parser,
+	}, nil
 }
 
 // Parse the contents of the target devcontainer.json into a struct.
