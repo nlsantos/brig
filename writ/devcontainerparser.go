@@ -175,7 +175,7 @@ func (p *DevcontainerParser) ExpandEnv(v string) string {
 	// variable name ends up clashing with an existing env var. In
 	// that case, that env var will be shadowed by an env var that
 	// doesn't have the prefix.
-	envPrefixes := regexp.MustCompile(`(\$\{containerEnv):`)
+	envPrefixes := regexp.MustCompile(`(\$\{containerEnv|remoteEnv):`)
 	v = envPrefixes.ReplaceAllString(v, "${1}__")
 
 	retval, err := shell.Expand(v, p.expandEnv)
@@ -211,7 +211,13 @@ func (p *DevcontainerParser) expandEnv(v string) string {
 		return filepath.Base(*p.Config.Context)
 	case strings.HasPrefix(v, "containerEnv__"):
 		envKey := strings.SplitN(v, "__", 2)
-		if val, ok := p.Config.ContainerEnv[envKey[1]]; ok {
+		if val, ok := p.EnvVarsContainer[envKey[1]]; ok {
+			return val
+		}
+		return ""
+	case strings.HasPrefix(v, "remoteEnv__"):
+		envKey := strings.SplitN(v, "__", 2)
+		if val, ok := p.EnvVarsRemote[envKey[1]]; ok {
 			return val
 		}
 		return ""
