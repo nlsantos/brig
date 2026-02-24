@@ -94,6 +94,9 @@ func NewDevcontainerParser(configPath string) (p *DevcontainerParser, err error)
 // Will refuse to parse unless the contents are determined to conform
 // to the official JSON Schema spec.
 //
+// Substitutions aren't performed on env vars ($FOO) at this stage, as
+// it's not necessary for a config file to be considered valid.
+//
 // TODO: Add support for other parts of the spec. (Ongoing)
 func (p *DevcontainerParser) Parse() error {
 	if !p.IsValidConfig {
@@ -124,6 +127,29 @@ func (p *DevcontainerParser) Parse() error {
 	slog.Info("workspace folder", "path", *p.Config.WorkspaceFolder)
 
 	return nil
+}
+
+// ProcessSubstitutions performs interpolation on values that can
+// contain them.
+//
+// This is a separate function so it's possible to set up a backing
+// for the variables. It's also exposed so it can be triggered outside
+// of the usual parsing cycle.
+func (p *DevcontainerParser) ProcessSubstitutions() {
+	if p.Config.ContainerEnv != nil {
+		slog.Debug("expanding variables", "section", "containerEnv")
+		for key, val := range p.Config.ContainerEnv {
+			p.Config.ContainerEnv[key] = p.ExpandEnv(val)
+		}
+	}
+
+	if p.Config.Mounts != nil {
+		slog.Debug("expanding variables", "section", "mounts")
+		for _, mount := range p.Config.Mounts {
+			mount.Source = p.ExpandEnv(mount.Source)
+			mount.Target = p.ExpandEnv(mount.Target)
+		}
+	}
 }
 
 // ExpandEnv is a thin wrapper around shell.Expand() that converts
@@ -254,21 +280,6 @@ func (p *DevcontainerParser) normalizeValues() error {
 				return err
 			}
 			p.Config.PortsAttributes[portIdx] = portAttributes
-		}
-	}
-
-	if p.Config.ContainerEnv != nil {
-		slog.Debug("expanding variables", "section", "containerEnv")
-		for key, val := range p.Config.ContainerEnv {
-			p.Config.ContainerEnv[key] = p.ExpandEnv(val)
-		}
-	}
-
-	if p.Config.Mounts != nil {
-		slog.Debug("expanding variables", "section", "mounts")
-		for _, mount := range p.Config.Mounts {
-			mount.Source = p.ExpandEnv(mount.Source)
-			mount.Target = p.ExpandEnv(mount.Target)
 		}
 	}
 
