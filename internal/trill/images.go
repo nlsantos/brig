@@ -59,7 +59,7 @@ func (c *Client) BuildContainerImage(contextPath string, dockerfilePath string, 
 	// without having an intermediary tarball, I like having it around
 	// so it's easier to debug issues pertaining to the context
 	// tarball.
-	contextArchivePath, err := buildContextArchive(contextPath, []string{})
+	contextArchivePath, err := buildContextArchive(contextPath, []string{dockerfilePath})
 	if err != nil {
 		return err
 	}
