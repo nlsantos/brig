@@ -462,7 +462,9 @@ func (c *Client) createComposerServices(p *writ.DevcontainerParser, servicesDAG 
 }
 
 func (c *Client) createComposerVolumes(volumes composetypes.Volumes) error {
-	slog.Warn("COMPOSER VOLUMES IS UNIMPLEMENTED")
+	if len(volumes) > 0 {
+		slog.Warn("COMPOSER VOLUMES IS UNIMPLEMENTED")
+	}
 	for _, volumeCfg := range volumes {
 		slog.Debug(fmt.Sprintf("%#v", volumeCfg))
 	}
